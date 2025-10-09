@@ -158,8 +158,6 @@ class IMDBDataLoader:
         # Extract unique title types
         unique_types = df_basics['titleType'].dropna().unique()
         
-        type_data = [(title_type, None) for title_type in unique_types]
-        
         self.bulk_insert(table, ['titleType'], [(title_type,) for title_type in unique_types])
         print(f"  ✓ Loaded {len(unique_types)} unique title types")
     
@@ -214,98 +212,134 @@ class IMDBDataLoader:
         
         return df
     
-    def load_dim_title(self, nrows=None):
-        print("\n[4/13] Loading dim_title...")
-        df = self.read_tsv('title.basics.tsv.gz', nrows=nrows)
-        if df is None:
+    def load_dim_title(self, df_basics=None, nrows=None):
+        table = "dim_title"
+        self.truncate_table(table)
+        
+        if df_basics is None:
+            df_basics = self.read_tsv('title.basics.tsv.gz', nrows=nrows)
+        if df_basics is None:
             return None
         
-        df['isAdult'] = df['isAdult'].fillna(0).astype(int)
-        df['startYear'] = pd.to_numeric(df['startYear'], errors='coerce')
-        df['endYear'] = pd.to_numeric(df['endYear'], errors='coerce')
-        df['runtimeMinutes'] = pd.to_numeric(df['runtimeMinutes'], errors='coerce')
+        df_basics['isAdult'] = df_basics['isAdult'].fillna(0).astype(int)
+        df_basics['startYear'] = pd.to_numeric(df_basics['startYear'], errors='coerce')
+        df_basics['endYear'] = pd.to_numeric(df_basics['endYear'], errors='coerce')
+        df_basics['runtimeMinutes'] = pd.to_numeric(df_basics['runtimeMinutes'], errors='coerce')
         
         # Get type mappings
         self.cursor.execute("SELECT titleType, type_key FROM dim_title_type")
         type_map = {titleType: type_key for titleType, type_key in self.cursor.fetchall()}
         
         title_data = []
-        total_rows = len(df)
+        titles_skipped = 0
         
-        for _, row in df.iterrows():
-            # Skip if no startYear
-            if pd.isna(row['startYear']):
-                self.skip_stats['dim_title']['missing_startYear'] += 1
+        for _, row in df_basics.iterrows():
+            if pd.isna(row['tconst']) or row['tconst'] == '\\N':
+                self.skip_stats['dim_title']['missing_tconst'] += 1
+                titles_skipped += 1
                 continue
-            
-            # Skip if year out of range
-            if row['startYear'] < 1874 or row['startYear'] > 2040:
-                self.skip_stats['dim_title']['year_out_of_range'] += 1
-                continue
-            
-            # Skip if titleType not found
+                
             type_key = type_map.get(row['titleType'])
-            if type_key is None:
+            if type_key is None and pd.notna(row['titleType']):
                 self.skip_stats['dim_title']['unknown_titleType'] += 1
-                continue
+            
+            start_year = int(row['startYear']) if pd.notna(row['startYear']) else None
+            end_year = int(row['endYear']) if pd.notna(row['endYear']) else None
+            runtime = int(row['runtimeMinutes']) if pd.notna(row['runtimeMinutes']) else None
             
             title_data.append((
                 row['tconst'],
                 row['primaryTitle'][:255] if pd.notna(row['primaryTitle']) else None,
                 row['originalTitle'][:255] if pd.notna(row['originalTitle']) else None,
                 int(row['isAdult']),
-                int(row['startYear']),
-                int(row['endYear']) if pd.notna(row['endYear']) else None,
-                int(row['runtimeMinutes']) if pd.notna(row['runtimeMinutes']) else None,
-                type_key
+                start_year,
+                end_year,
+                runtime,
+                type_key  # Can be NULL
             ))
         
         self.bulk_insert(
-            'dim_title',
+            table,
             ['tconst', 'primaryTitle', 'originalTitle', 'isAdult', 'startYear', 'endYear', 'runtimeMinutes', 'type_key'],
             title_data
         )
         
+        print(f"  ✓ Loaded {len(title_data):,} titles, skipped {titles_skipped:,} due to missing tconst")
         self.print_skip_summary('dim_title')
-        return df
+        return df_basics
     
     def load_dim_episode(self, nrows=None):
-        print("\n[5/13] Loading dim_episode...")
+        table = "dim_episode"
+        self.truncate_table(table)
+        
         df = self.read_tsv('title.episode.tsv.gz', nrows=nrows)
         if df is None:
             return
         
+        # Get valid tconst and parentTconst values from dim_title
+        self.cursor.execute("SELECT tconst FROM dim_title")
+        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
+        
         episode_data = []
         for _, row in df.iterrows():
+            # Skip if episode tconst not in dim_title
+            if row['tconst'] not in valid_tconsts:
+                self.skip_stats['dim_episode']['tconst_not_found'] += 1
+                continue
+            
+            # Check if parentTconst exists (if not NULL)
+            parent_tconst = row['parentTconst'] if pd.notna(row['parentTconst']) else None
+            if parent_tconst and parent_tconst not in valid_tconsts:
+                self.skip_stats['dim_episode']['parent_tconst_not_found'] += 1
+                parent_tconst = None  # Set to NULL instead of skipping entire record
+            
             episode_data.append((
                 row['tconst'],
-                row['parentTconst'] if pd.notna(row['parentTconst']) else None,
+                parent_tconst,
                 int(row['seasonNumber']) if pd.notna(row['seasonNumber']) else None,
                 int(row['episodeNumber']) if pd.notna(row['episodeNumber']) else None
             ))
         
-        self.bulk_insert('dim_episode', ['tconst', 'parentTconst', 'seasonNumber', 'episodeNumber'], episode_data)
+        self.bulk_insert(table, ['tconst', 'parentTconst', 'seasonNumber', 'episodeNumber'], episode_data)
+        self.print_skip_summary('dim_episode')
     
-    def load_dim_region(self, nrows=None):
-        print("\n[6/13] Loading dim_region...")
+    def load_dim_akas(self, nrows=None):
+        """Load dim_akas from title.akas.tsv"""
+        table = "dim_akas"
+        self.truncate_table(table)
+        
         df = self.read_tsv('title.akas.tsv.gz', nrows=nrows)
         if df is None:
             return None
         
-        region_cols = ['region', 'language', 'types', 'attributes']
-        df_regions = df[region_cols].drop_duplicates()
+        # Get valid tconst values from dim_title
+        self.cursor.execute("SELECT tconst FROM dim_title")
+        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
         
-        region_data = []
-        for _, row in df_regions.iterrows():
-            region_data.append((
+        akas_data = []
+        for _, row in df.iterrows():
+            # Skip if tconst not in dim_title (FK constraint)
+            if row['titleId'] not in valid_tconsts:
+                self.skip_stats['dim_akas']['tconst_not_found'] += 1
+                continue
+            
+            akas_data.append((
+                row['titleId'],
+                row['title'][:255] if pd.notna(row['title']) else None,
                 row['region'][:10] if pd.notna(row['region']) else None,
                 row['language'][:10] if pd.notna(row['language']) else None,
                 row['types'][:100] if pd.notna(row['types']) else None,
-                row['attributes'][:255] if pd.notna(row['attributes']) else None
+                row['attributes'][:255] if pd.notna(row['attributes']) else None,
+                int(row['isOriginalTitle']) if pd.notna(row['isOriginalTitle']) else 0
             ))
         
-        self.bulk_insert('dim_region', ['region', 'language', 'types', 'attributes'], region_data)
+        self.bulk_insert(
+            table,
+            ['tconst', 'title', 'region', 'language', 'types', 'attributes', 'isOriginalTitle'],
+            akas_data
+        )
         
+        self.print_skip_summary('dim_akas')
         return df
     
     # ========================================
@@ -314,7 +348,8 @@ class IMDBDataLoader:
     
     def load_bridge_title_genre(self, df_basics):
         """Load title-genre bridge from title.basics genres column"""
-        print("\n[7/13] Loading bridge_title_genre...")
+        table = "bridge_title_genre"
+        self.truncate_table(table)
         
         if df_basics is None:
             print("  ⚠ Skipping - no title data available")
@@ -324,8 +359,17 @@ class IMDBDataLoader:
         self.cursor.execute("SELECT genre_name, genre_key FROM dim_genre")
         genre_map = {name: key for name, key in self.cursor.fetchall()}
         
+        # Get valid tconst values
+        self.cursor.execute("SELECT tconst FROM dim_title")
+        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
+        
         bridge_data = []
         for _, row in df_basics.iterrows():
+            # Skip if tconst not in dim_title (FK constraint)
+            if row['tconst'] not in valid_tconsts:
+                self.skip_stats['bridge_title_genre']['tconst_not_found'] += 1
+                continue
+            
             if pd.notna(row['genres']) and row['genres'] != '\\N':
                 genres = row['genres'].split(',')
                 for genre in genres:
@@ -342,7 +386,8 @@ class IMDBDataLoader:
     
     def load_bridge_title_director(self, nrows=None):
         """Load director bridge from title.crew.tsv"""
-        print("\n[8/13] Loading bridge_title_director...")
+        table = "bridge_title_director"
+        self.truncate_table(table)
         
         df = self.read_tsv('title.crew.tsv.gz', nrows=nrows)
         if df is None:
@@ -352,8 +397,17 @@ class IMDBDataLoader:
         self.cursor.execute("SELECT nconst, person_key FROM dim_person")
         person_map = {nconst: person_key for nconst, person_key in self.cursor.fetchall()}
         
+        # Get valid tconst values
+        self.cursor.execute("SELECT tconst FROM dim_title")
+        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
+        
         bridge_data = []
         for _, row in df.iterrows():
+            # Skip if tconst not in dim_title (FK constraint)
+            if row['tconst'] not in valid_tconsts:
+                self.skip_stats['bridge_title_director']['tconst_not_found'] += 1
+                continue
+            
             if pd.notna(row['directors']) and row['directors'] != '\\N':
                 directors = row['directors'].split(',')
                 for nconst in directors:
@@ -371,7 +425,8 @@ class IMDBDataLoader:
     
     def load_bridge_title_writer(self, nrows=None):
         """Load writer bridge from title.crew.tsv"""
-        print("\n[9/13] Loading bridge_title_writer...")
+        table = "bridge_title_writer"
+        self.truncate_table(table)
         
         df = self.read_tsv('title.crew.tsv.gz', nrows=nrows)
         if df is None:
@@ -381,8 +436,17 @@ class IMDBDataLoader:
         self.cursor.execute("SELECT nconst, person_key FROM dim_person")
         person_map = {nconst: person_key for nconst, person_key in self.cursor.fetchall()}
         
+        # Get valid tconst values
+        self.cursor.execute("SELECT tconst FROM dim_title")
+        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
+        
         bridge_data = []
         for _, row in df.iterrows():
+            # Skip if tconst not in dim_title (FK constraint)
+            if row['tconst'] not in valid_tconsts:
+                self.skip_stats['bridge_title_writer']['tconst_not_found'] += 1
+                continue
+            
             if pd.notna(row['writers']) and row['writers'] != '\\N':
                 writers = row['writers'].split(',')
                 for nconst in writers:
@@ -400,7 +464,8 @@ class IMDBDataLoader:
     
     def load_bridge_title_principal(self, nrows=None):
         """Load principal cast/crew bridge from title.principals.tsv"""
-        print("\n[10/13] Loading bridge_title_principal...")
+        table = "bridge_title_principal"
+        self.truncate_table(table)
         
         df = self.read_tsv('title.principals.tsv.gz', nrows=nrows)
         if df is None:
@@ -410,8 +475,17 @@ class IMDBDataLoader:
         self.cursor.execute("SELECT nconst, person_key FROM dim_person")
         person_map = {nconst: person_key for nconst, person_key in self.cursor.fetchall()}
         
+        # Get valid tconst values
+        self.cursor.execute("SELECT tconst FROM dim_title")
+        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
+        
         bridge_data = []
         for _, row in df.iterrows():
+            # Skip if tconst not in dim_title (FK constraint)
+            if row['tconst'] not in valid_tconsts:
+                self.skip_stats['bridge_title_principal']['tconst_not_found'] += 1
+                continue
+            
             person_key = person_map.get(row['nconst'])
             if person_key:
                 bridge_data.append((
@@ -431,61 +505,14 @@ class IMDBDataLoader:
         )
         self.print_skip_summary('bridge_title_principal')
     
-    def load_bridge_title_region(self, df_akas):
-        """Load title-region bridge from title.akas.tsv"""
-        print("\n[11/13] Loading bridge_title_region...")
-        
-        if df_akas is None:
-            print("  ⚠ Skipping - no akas data available")
-            return
-        
-        # Get region_key mapping
-        self.cursor.execute("""
-            SELECT region_key, region, language, types, attributes 
-            FROM dim_region
-        """)
-        region_map = {}
-        for region_key, region, language, types, attributes in self.cursor.fetchall():
-            key = (region, language, types, attributes)
-            region_map[key] = region_key
-        
-        bridge_data = []
-        for _, row in df_akas.iterrows():
-            key = (
-                row['region'][:10] if pd.notna(row['region']) else None,
-                row['language'][:10] if pd.notna(row['language']) else None,
-                row['types'][:100] if pd.notna(row['types']) else None,
-                row['attributes'][:255] if pd.notna(row['attributes']) else None
-            )
-            
-            region_key = region_map.get(key)
-            if region_key:
-                # Handle isOriginalTitle - default to 0 if missing
-                is_original = int(row['isOriginalTitle']) if pd.notna(row['isOriginalTitle']) else 0
-                
-                bridge_data.append((
-                    row['titleId'],
-                    region_key,
-                    row['title'][:255] if pd.notna(row['title']) else None,
-                    is_original
-                ))
-            else:
-                self.skip_stats['bridge_title_region']['unknown_region'] += 1
-        
-        self.bulk_insert(
-            'bridge_title_region',
-            ['tconst', 'region_key', 'title', 'isOriginalTitle'],
-            bridge_data
-        )
-        self.print_skip_summary('bridge_title_region')
-    
     # ========================================
     # FACT TABLE 
     # ========================================
     
     def load_fact_title_ratings(self, nrows=None):
         """Load fact table by joining ratings with title dimensions"""
-        print("\n[FACT] Loading fact_title_ratings...")
+        table = "fact_title_ratings"
+        self.truncate_table(table)
         
         # Read ratings
         df_ratings = self.read_tsv('title.ratings.tsv.gz', nrows=nrows)
@@ -495,7 +522,7 @@ class IMDBDataLoader:
         # Get lookup mappings from database
         print("  Building lookup tables...")
         
-        # Get title_key and type_key mapping
+        # Get title_key, startYear and type_key mapping (allow NULL startYear)
         self.cursor.execute("SELECT tconst, title_key, startYear, type_key FROM dim_title")
         title_map = {tconst: (title_key, year, type_key) for tconst, title_key, year, type_key in self.cursor.fetchall()}
         
@@ -509,19 +536,19 @@ class IMDBDataLoader:
         for _, row in df_ratings.iterrows():
             tconst = row['tconst']
             
-            # Skip if title not in dimension
+            # Skip if title not in dimension (FK constraint)
             if tconst not in title_map:
                 self.skip_stats['fact_title_ratings']['title_not_found'] += 1
                 continue
             
             title_key, start_year, type_key = title_map[tconst]
             
-            # Skip if year not in time dimension
-            if pd.isna(start_year) or start_year not in time_map:
-                self.skip_stats['fact_title_ratings']['invalid_year'] += 1
-                continue
-            
-            time_key = time_map[start_year]
+            # If startYear is NULL or not in time dimension, set time_key to NULL
+            time_key = None
+            if pd.notna(start_year) and start_year in time_map:
+                time_key = time_map[start_year]
+            elif pd.notna(start_year):
+                self.skip_stats['fact_title_ratings']['year_not_in_dim_time'] += 1
             
             fact_data.append((
                 tconst,
@@ -559,40 +586,69 @@ class IMDBDataLoader:
             if self.disable_fk:
                 self.disable_foreign_keys()
             
-            # Step 1: Load dim_time (no dependencies)
-            self.timed("1/13 dim_time", self.load_dim_time)
+            # =====================================================
+            # PHASE 1: INDEPENDENT DIMENSIONS (no dependencies)
+            # =====================================================
             
-            # Step 2: Read title.basics first (needed for types and genres)
-            print("\n[2/13] Pre-reading title.basics for metadata extraction...")
+            # Step 1: Load static dimensions first
+            self.timed("1/10 dim_time", self.load_dim_time)
+            
+            # Step 2: Load people (independent of titles)
+            df_person = self.timed("2/10 dim_person", self.load_dim_person, nrows)
+            
+            # =====================================================
+            # PHASE 2: TITLE-RELATED DIMENSIONS (complex dependencies)
+            # =====================================================
+            
+            # Step 3: Read title.basics ONCE for metadata extraction
+            print("\n[3/10] Reading title.basics for metadata extraction...")
             df_basics = self.read_tsv('title.basics.tsv.gz', nrows)
+            if df_basics is None:
+                raise Exception("Failed to read title.basics - cannot continue")
             
-            # Step 3: Dynamically load dim_title_type
-            self.timed("3/13 dim_title_type (dynamic)", self.load_dim_title_type, df_basics)
+            # Step 4: Extract title types FROM the basics data
+            self.timed("4/10 dim_title_type (dynamic)", self.load_dim_title_type, df_basics)
             
-            # Step 4: Load dim_person
-            df_person = self.timed("4/13 dim_person", self.load_dim_person, nrows)
+            # Step 5: Extract genres FROM the basics data  
+            self.timed("5/10 dim_genre (dynamic)", self.load_dim_genre, df_basics)
             
-            # Step 5: Load dim_title (now that types exist)
-            df_basics = self.timed("5/13 dim_title", self.load_dim_title, nrows)
+            # Step 6: Load titles (now that types exist)
+            df_basics = self.timed("6/10 dim_title", self.load_dim_title, df_basics, nrows)
             
-            # Step 6: Dynamically load dim_genre
-            self.timed("6/13 dim_genre (dynamic)", self.load_dim_genre, df_basics)
+            # =====================================================
+            # PHASE 3: TITLE-DEPENDENT DIMENSIONS (require dim_title)
+            # =====================================================
             
-            # Step 7: Load dim_episode
-            self.timed("7/13 dim_episode", self.load_dim_episode, nrows)
+            # Step 7: Load episodes (depends on dim_title)
+            self.timed("7/10 dim_episode", self.load_dim_episode, nrows)
             
-            # Step 8: Load dim_region
-            df_akas = self.timed("8/13 dim_region", self.load_dim_region, nrows)
+            # Step 8: Load AKAs (depends on dim_title)
+            self.timed("8/10 dim_akas", self.load_dim_akas, nrows)
             
-            # Bridges
-            self.timed("9/13 bridge_title_genre", self.load_bridge_title_genre, df_basics)
-            self.timed("10/13 bridge_title_director", self.load_bridge_title_director, nrows)
-            self.timed("11/13 bridge_title_writer", self.load_bridge_title_writer, nrows)
-            self.timed("12/13 bridge_title_principal", self.load_bridge_title_principal, nrows)
-            self.timed("13/13 bridge_title_region", self.load_bridge_title_region, df_akas)
+            # =====================================================
+            # PHASE 4: BRIDGE TABLES (require multiple dimensions)
+            # =====================================================
             
-            # Fact
-            self.timed("FACT fact_title_ratings", self.load_fact_title_ratings, nrows)
+            print("\n[9/10] Loading bridge tables...")
+            
+            # Bridge 9: Title-Genre (needs dim_title + dim_genre)
+            self.load_bridge_title_genre(df_basics)
+            
+            # Bridge 9: Title-Director (needs dim_title + dim_person)
+            self.load_bridge_title_director(nrows)
+            
+            # Bridge 9: Title-Writer (needs dim_title + dim_person)  
+            self.load_bridge_title_writer(nrows)
+            
+            # Bridge 9: Title-Principal (needs dim_title + dim_person)
+            self.load_bridge_title_principal(nrows)
+            
+            # =====================================================
+            # PHASE 5: FACT TABLE (requires all dimensions)
+            # =====================================================
+            
+            # Step 10: Fact table (needs dim_title, dim_time, dim_title_type)
+            self.timed("10/10 fact_title_ratings", self.load_fact_title_ratings, nrows)
             
             elapsed = datetime.now() - start_time
             print("\n" + "=" * 60)

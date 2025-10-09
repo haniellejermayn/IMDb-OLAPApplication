@@ -63,18 +63,18 @@ CREATE TABLE dim_title (
     ON DELETE SET NULL
 );
 
--- REGION / AKAS DIMENSION
--- Note: region can be NULL in practice (represents worldwide/unspecified releases)
--- Even though not documented, IMDb data contains \N for region in some cases
-CREATE TABLE dim_region (
-  region_key INT AUTO_INCREMENT PRIMARY KEY,
-  region VARCHAR(10) COMMENT 'NULL = worldwide/unspecified region',
+-- AKAS DIMENSION
+CREATE TABLE dim_akas (
+  aka_key INT AUTO_INCREMENT PRIMARY KEY,
+  tconst VARCHAR(20) NOT NULL,
+  title VARCHAR(255),
+  region VARCHAR(10),
   language VARCHAR(10),
   types VARCHAR(100),
   attributes VARCHAR(255),
-  INDEX idx_region (region),
-  -- unique constraint to prevent duplicate region combinations
-  UNIQUE KEY unique_region_combo (region, language, types, attributes)
+  isOriginalTitle TINYINT(1),
+  FOREIGN KEY (tconst) REFERENCES dim_title(tconst)
+    ON DELETE CASCADE
 );
 
 -- EPISODE DIMENSION
@@ -167,19 +167,6 @@ CREATE TABLE bridge_title_principal (
   FOREIGN KEY (tconst) REFERENCES dim_title(tconst)
     ON DELETE CASCADE,
   FOREIGN KEY (person_key) REFERENCES dim_person(person_key)
-    ON DELETE CASCADE
-);
-
--- TITLE ↔ REGION / AKAS
-CREATE TABLE bridge_title_region (
-  tconst VARCHAR(20) NOT NULL,
-  region_key INT NULL,
-  title VARCHAR(255),
-  isOriginalTitle TINYINT(1),
-  PRIMARY KEY (tconst, region_key),
-  FOREIGN KEY (tconst) REFERENCES dim_title(tconst)
-    ON DELETE CASCADE,
-  FOREIGN KEY (region_key) REFERENCES dim_region(region_key)
     ON DELETE CASCADE
 );
 
