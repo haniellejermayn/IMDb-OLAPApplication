@@ -22,8 +22,7 @@ CREATE TABLE dim_time (
 -- TITLE TYPE DIMENSION
 CREATE TABLE dim_title_type (
   type_key INT AUTO_INCREMENT PRIMARY KEY,
-  titleType VARCHAR(50) UNIQUE NOT NULL,
-  description VARCHAR(255)
+  titleType VARCHAR(50) UNIQUE NOT NULL
 );
 
 -- GENRE DIMENSION
@@ -174,7 +173,7 @@ CREATE TABLE bridge_title_principal (
 -- TITLE ↔ REGION / AKAS
 CREATE TABLE bridge_title_region (
   tconst VARCHAR(20) NOT NULL,
-  region_key INT NOT NULL,
+  region_key INT NULL,
   title VARCHAR(255),
   isOriginalTitle TINYINT(1),
   PRIMARY KEY (tconst, region_key),

@@ -160,7 +160,7 @@ class IMDBDataLoader:
         
         type_data = [(title_type, None) for title_type in unique_types]
         
-        self.bulk_insert(table, ['titleType', 'description'], type_data)
+        self.bulk_insert(table, ['titleType'], [(title_type,) for title_type in unique_types])
         print(f"  ✓ Loaded {len(unique_types)} unique title types")
     
     def load_dim_genre(self, df_basics):
