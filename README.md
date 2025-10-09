@@ -87,14 +87,22 @@ python load_data.py --test
 ## 🧱 Table Overview
 
 **Dimensions:**
-`dim_time`, `dim_person`, `dim_title`, `dim_region`, `dim_genre`, `dim_title_type`, `dim_episode`
+
+* `dim_date` – Years, decades, centuries (for rollups)
+* `dim_person` – People (actors, directors, writers, etc.)
+* `dim_title` – Movies, shows, etc.
+* `dim_genre` – Genres (with surrogate `genre_key`)
+* `dim_episode` – Episodes linked to titles
+* `dim_akas` – Alternative titles and regions
 
 **Bridges:**
-`bridge_title_genre`, `bridge_title_director`, `bridge_title_writer`,
-`bridge_title_principal`, `bridge_title_region`
+
+* `bridge_title_genre` – Many-to-many title ↔ genre
+* `bridge_title_crew` – Crew and principal roles (director, writer, actor)
 
 **Fact:**
-`fact_title_ratings`
+
+* `fact_title_ratings` – Ratings, votes per title
 
 ---
 
