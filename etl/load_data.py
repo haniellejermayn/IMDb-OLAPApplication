@@ -507,14 +507,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="IMDb Data Warehouse ETL Loader")
     parser.add_argument("--test", action="store_true", help="Run ETL in test mode (10,000 rows per file)")
-    parser.add_argument("--no-truncate", action="store_true", help="Disable table truncation before load")
+    parser.add_argument("--truncate", action="store_true", help="Clear tables before load (full reload)")
     parser.add_argument("--check-fk", action="store_true", help="Enable foreign key checks during load")
     args = parser.parse_args()
 
     loader = IMDBDataLoader(
         DB_CONFIG,
         DATA_PATH,
-        truncate=not args.no_truncate,
+        truncate=args.truncate,
         disable_fk=not args.check_fk
     )
 

@@ -73,7 +73,7 @@ then reloads all dimensions, bridges, and fact tables.
 | ---------------------- | ------------------------------------- | ----------------------------------------------- |
 | 🧪 **Test mode**       | `python load_data.py --test`          | Loads only first 10k rows per dataset           |
 | 🚀 **Full load**       | `python load_data.py`                 | Loads all data (FK checks off for speed)        |
-| 🧹 **Keep old data**   | `python load_data.py --no-truncate`   | Appends instead of clearing tables              |
+| 🧹 **Remove old data** | `python load_data.py --truncate`      | Clear tables before load (full reload)          |
 | ✅ **FK validation**   | `python load_data.py --check-fk`      | Runs with FK checks ON (slower, ensures links)  |
 
 Example:
