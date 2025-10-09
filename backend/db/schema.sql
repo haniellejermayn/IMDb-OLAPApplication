@@ -1,7 +1,6 @@
 -- ============================================================
 -- IMDb STAR SCHEMA
 -- ============================================================
-
 DROP DATABASE IF EXISTS imdb_star_schema;
 CREATE DATABASE imdb_star_schema;
 USE imdb_star_schema;
@@ -27,29 +26,11 @@ CREATE TABLE dim_title_type (
   description VARCHAR(255)
 );
 
-INSERT INTO dim_title_type (titleType, description) VALUES
-('movie', 'Feature film'),
-('short', 'Short film'),
-('tvSeries', 'TV Series'),
-('tvEpisode', 'TV Episode'),
-('tvMovie', 'TV Movie'),
-('tvShort', 'TV Short'),
-('tvMiniSeries', 'TV Mini Series'),
-('tvSpecial', 'TV Special'),
-('video', 'Direct-to-video'),
-('videoGame', 'Video Game');
-
 -- GENRE DIMENSION
 CREATE TABLE dim_genre (
   genre_key INT AUTO_INCREMENT PRIMARY KEY,
   genre_name VARCHAR(50) UNIQUE NOT NULL
 );
-
-INSERT INTO dim_genre (genre_name) VALUES
-('Action'), ('Adventure'), ('Animation'), ('Biography'), ('Comedy'),
-('Crime'), ('Documentary'), ('Drama'), ('Family'), ('Fantasy'),
-('History'), ('Horror'), ('Music'), ('Musical'), ('Mystery'),
-('Romance'), ('Sci-Fi'), ('Sport'), ('Thriller'), ('War'), ('Western');
 
 -- PERSON DIMENSION
 CREATE TABLE dim_person (
@@ -84,12 +65,17 @@ CREATE TABLE dim_title (
 );
 
 -- REGION / AKAS DIMENSION
+-- Note: region can be NULL in practice (represents worldwide/unspecified releases)
+-- Even though not documented, IMDb data contains \N for region in some cases
 CREATE TABLE dim_region (
   region_key INT AUTO_INCREMENT PRIMARY KEY,
-  region VARCHAR(10),
+  region VARCHAR(10) COMMENT 'NULL = worldwide/unspecified region',
   language VARCHAR(10),
   types VARCHAR(100),
-  attributes VARCHAR(255)
+  attributes VARCHAR(255),
+  INDEX idx_region (region),
+  -- unique constraint to prevent duplicate region combinations
+  UNIQUE KEY unique_region_combo (region, language, types, attributes)
 );
 
 -- EPISODE DIMENSION
