@@ -88,7 +88,7 @@ class IMDBDataLoader:
             print(f"  ✗ Error reading {filename}: {e}")
             return None
 
-    def bulk_insert(self, table, columns, data, batch_size=5000):
+    def bulk_insert(self, table, columns, data, batch_size=50000):
         """Efficient bulk insert with batching"""
         if not data:
             print(f"  ⚠ No data to insert into {table}")
