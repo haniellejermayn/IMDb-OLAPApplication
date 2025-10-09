@@ -15,15 +15,13 @@ class IMDBDataLoader:
         self.cursor = None
         self.truncate = truncate
         self.disable_fk = disable_fk
-        
-        # Logging counters
         self.skip_stats = defaultdict(lambda: defaultdict(int))
     
     # =====================================================
-    # CONNECTION MANAGEMENT
+    # UTILITIES
     # =====================================================
+    
     def connect(self):
-        """Establish database connection"""
         try:
             self.conn = mysql.connector.connect(**self.db_config)
             self.cursor = self.conn.cursor()
@@ -33,7 +31,6 @@ class IMDBDataLoader:
             sys.exit(1)
     
     def close(self):
-        """Close database connection"""
         if self.cursor:
             self.cursor.close()
         if self.conn:
@@ -41,7 +38,6 @@ class IMDBDataLoader:
         print("✓ Database connection closed")
     
     def disable_foreign_keys(self):
-        """Temporarily disable FK checks for faster bulk loading"""
         try:
             self.cursor.execute("SET FOREIGN_KEY_CHECKS=0;")
             print("✓ Foreign key checks disabled")
@@ -49,30 +45,22 @@ class IMDBDataLoader:
             print(f"⚠ Could not disable FK checks: {e}")
     
     def enable_foreign_keys(self):
-        """Re-enable FK checks after loading"""
         try:
             self.cursor.execute("SET FOREIGN_KEY_CHECKS=1;")
             print("✓ Foreign key checks re-enabled")
         except Error as e:
             print(f"⚠ Could not re-enable FK checks: {e}")
     
-    # =====================================================
-    # UTILITIES
-    # =====================================================
     def truncate_table(self, table):
         if not self.truncate:
             return
         try:
-            if self.disable_fk:
-                self.cursor.execute(f"TRUNCATE TABLE {table}")
-            else:
-                self.cursor.execute(f"DELETE FROM {table}")
+            self.cursor.execute(f"TRUNCATE TABLE {table}")
             print(f"  ↻ Cleared {table}")
         except Error as e:
             print(f"  ⚠ Could not clear {table}: {e}")
     
     def read_tsv(self, filename, nrows=None):
-        """Read TSV file with proper null handling"""
         print(f"  Reading {filename}...")
         try:
             df = pd.read_csv(
@@ -83,23 +71,21 @@ class IMDBDataLoader:
                 low_memory=False,
                 nrows=nrows
             )
-            print(f"  ✓ Loaded {len(df):,} rows from {filename}")
+            print(f"  ✓ Loaded {len(df):,} rows")
             return df
         except Exception as e:
-            print(f"  ✗ Error reading {filename}: {e}")
+            print(f"  ✗ Error: {e}")
             return None
     
     def bulk_insert(self, table, columns, data, batch_size=50000):
-        """Efficient bulk insert with batching"""
         if not data:
-            print(f"  ⚠ No data to insert into {table}")
+            print(f"  ⚠ No data to insert")
             return
         
         placeholders = ', '.join(['%s'] * len(columns))
         query = f"INSERT IGNORE INTO {table} ({', '.join(columns)}) VALUES ({placeholders})"
         
         total = len(data)
-        inserted = 0
         start = time.time()
         
         try:
@@ -107,556 +93,290 @@ class IMDBDataLoader:
                 batch = data[i:i + batch_size]
                 self.cursor.executemany(query, batch)
                 self.conn.commit()
-                inserted += len(batch)
-                print(f"  Progress: {inserted:,}/{total:,} rows", end='\r')
+                print(f"  Progress: {i + len(batch):,}/{total:,}", end='\r')
             
-            elapsed = time.time() - start
-            print(f"\n  ✓ Inserted {inserted:,} rows into {table} ({elapsed:.2f}s)")
+            print(f"\n  ✓ Inserted {total:,} rows ({time.time() - start:.2f}s)")
         except Error as e:
-            print(f"\n  ✗ Error inserting into {table}: {e}")
+            print(f"\n  ✗ Error: {e}")
             self.conn.rollback()
     
-    def timed(self, label, func, *args, **kwargs):
-        """Helper to time each ETL stage"""
+    def timed(self, label, func, *args):
         print(f"\n[{label}]")
         start = time.time()
-        result = func(*args, **kwargs)
-        elapsed = time.time() - start
-        print(f"✓ {label} completed in {elapsed:.2f}s")
+        result = func(*args)
+        print(f"✓ Completed in {time.time() - start:.2f}s")
         return result
     
-    def print_skip_summary(self, table):
-        """Print summary of skipped records for a table"""
-        if table in self.skip_stats and self.skip_stats[table]:
-            print(f"\n  📊 Skip Summary for {table}:")
-            for reason, count in self.skip_stats[table].items():
-                print(f"     • {reason}: {count:,} records")
-            total_skipped = sum(self.skip_stats[table].values())
-            print(f"     • Total skipped: {total_skipped:,} records")
-    
     # =====================================================
-    # DIMENSIONS
+    # LOADERS
     # =====================================================
-    def load_dim_time(self):
-        table = "dim_time"
-        self.truncate_table(table)
-        
-        years = list(range(1874, 2041))
-        time_data = [(year, (year // 10) * 10, (year // 100) + 1) for year in years]
-        
-        self.bulk_insert(table, ['year', 'decade', 'century'], time_data)
     
-    def load_dim_title_type(self, df_basics):
-        """Dynamically populate dim_title_type from dataset"""
-        table = "dim_title_type"
-        self.truncate_table(table)
-        
-        if df_basics is None:
-            print("  ⚠ No data to extract title types")
-            return
-        
-        # Extract unique title types
-        unique_types = df_basics['titleType'].dropna().unique()
-        
-        self.bulk_insert(table, ['titleType'], [(title_type,) for title_type in unique_types])
-        print(f"  ✓ Loaded {len(unique_types)} unique title types")
+    def load_dim_date(self):
+        self.truncate_table("dim_date")
+        data = [(y, (y // 10) * 10, (y // 100) * 100) for y in range(1874, 2033)]
+        self.bulk_insert("dim_date", ['year', 'decade', 'century'], data)
     
     def load_dim_genre(self, df_basics):
-        """Dynamically populate dim_genre from dataset"""
-        table = "dim_genre"
-        self.truncate_table(table)
+        self.truncate_table("dim_genre")
+        genres = set()
+        for g in df_basics['genres'].dropna():
+            if str(g) not in ['\\N', 'nan']:
+                genres.update([x.strip() for x in str(g).split(',') if x.strip()])
+        self.bulk_insert("dim_genre", ['genre_name'], [(g,) for g in sorted(genres)])
+    
+    def load_dim_person(self, nrows):
+        self.truncate_table("dim_person")
         
-        if df_basics is None:
-            print("  ⚠ No data to extract genres")
+        df_names = self.read_tsv('name.basics.tsv.gz', nrows)
+        if df_names is None:
             return
         
-        # Extract all unique genres from the genres column
-        all_genres = set()
-        for genres_str in df_basics['genres'].dropna():
-            if genres_str != '\\N':
-                genres = [g.strip() for g in genres_str.split(',')]
-                all_genres.update(genres)
+        all_nconsts = set(df_names['nconst'].dropna())
         
-        genre_data = [(genre,) for genre in sorted(all_genres)]
+        # Add crew IDs
+        df_crew = self.read_tsv('title.crew.tsv.gz', nrows)
+        if df_crew is not None:
+            for col in ['directors', 'writers']:
+                for val in df_crew[col].dropna():
+                    if str(val) not in ['\\N', 'nan']:
+                        all_nconsts.update([n.strip() for n in str(val).split(',')])
         
-        self.bulk_insert(table, ['genre_name'], genre_data)
-        print(f"  ✓ Loaded {len(all_genres)} unique genres")
+        # Add principal IDs
+        df_principals = self.read_tsv('title.principals.tsv.gz', nrows)
+        if df_principals is not None:
+            all_nconsts.update(df_principals['nconst'].dropna())
+        
+        print(f"  Found {len(all_nconsts):,} unique people")
+        
+        # Build person info map
+        person_info = {}
+        for _, row in df_names.iterrows():
+            person_info[row['nconst']] = (
+                row['primaryName'][:255] if pd.notna(row['primaryName']) else None,
+                int(row['birthYear']) if pd.notna(row['birthYear']) else None,
+                int(row['deathYear']) if pd.notna(row['deathYear']) else None
+            )
+        
+        data = [(nc, *person_info.get(nc, (None, None, None))) for nc in all_nconsts]
+        self.bulk_insert("dim_person", ['nconst', 'primaryName', 'birthYear', 'deathYear'], data)
     
-    def load_dim_person(self, nrows=None):
-        table = "dim_person"
-        self.truncate_table(table)
+    def load_dim_title(self, nrows):
+        self.truncate_table("dim_title")
         
-        df = self.read_tsv('name.basics.tsv.gz', nrows=nrows)
+        df = self.read_tsv('title.basics.tsv.gz', nrows)
         if df is None:
             return None
         
-        df['birthYear'] = pd.to_numeric(df['birthYear'], errors='coerce')
-        df['deathYear'] = pd.to_numeric(df['deathYear'], errors='coerce')
+        # Get date mapping
+        self.cursor.execute("SELECT year, date_key FROM dim_date")
+        date_map = dict(self.cursor.fetchall())
         
-        person_data = []
+        data = []
         for _, row in df.iterrows():
-            person_data.append((
-                row['nconst'],
-                row['primaryName'][:255] if pd.notna(row['primaryName']) else None,
-                int(row['birthYear']) if pd.notna(row['birthYear']) else None,
-                int(row['deathYear']) if pd.notna(row['deathYear']) else None,
-                row['primaryProfession'][:255] if pd.notna(row['primaryProfession']) else None,
-                row['knownForTitles'] if pd.notna(row['knownForTitles']) else None
-            ))
-        
-        self.bulk_insert(
-            table,
-            ['nconst', 'primaryName', 'birthYear', 'deathYear', 'primaryProfession', 'knownForTitles'],
-            person_data
-        )
-        
-        return df
-    
-    def load_dim_title(self, df_basics=None, nrows=None):
-        table = "dim_title"
-        self.truncate_table(table)
-        
-        if df_basics is None:
-            df_basics = self.read_tsv('title.basics.tsv.gz', nrows=nrows)
-        if df_basics is None:
-            return None
-        
-        df_basics['isAdult'] = df_basics['isAdult'].fillna(0).astype(int)
-        df_basics['startYear'] = pd.to_numeric(df_basics['startYear'], errors='coerce')
-        df_basics['endYear'] = pd.to_numeric(df_basics['endYear'], errors='coerce')
-        df_basics['runtimeMinutes'] = pd.to_numeric(df_basics['runtimeMinutes'], errors='coerce')
-        
-        # Get type mappings
-        self.cursor.execute("SELECT titleType, type_key FROM dim_title_type")
-        type_map = {titleType: type_key for titleType, type_key in self.cursor.fetchall()}
-        
-        title_data = []
-        titles_skipped = 0
-        
-        for _, row in df_basics.iterrows():
-            if pd.isna(row['tconst']) or row['tconst'] == '\\N':
-                self.skip_stats['dim_title']['missing_tconst'] += 1
-                titles_skipped += 1
+            if pd.isna(row['tconst']):
                 continue
-                
-            type_key = type_map.get(row['titleType'])
-            if type_key is None and pd.notna(row['titleType']):
-                self.skip_stats['dim_title']['unknown_titleType'] += 1
             
             start_year = int(row['startYear']) if pd.notna(row['startYear']) else None
             end_year = int(row['endYear']) if pd.notna(row['endYear']) else None
-            runtime = int(row['runtimeMinutes']) if pd.notna(row['runtimeMinutes']) else None
             
-            title_data.append((
+            data.append((
                 row['tconst'],
                 row['primaryTitle'][:255] if pd.notna(row['primaryTitle']) else None,
                 row['originalTitle'][:255] if pd.notna(row['originalTitle']) else None,
-                int(row['isAdult']),
-                start_year,
-                end_year,
-                runtime,
-                type_key  # Can be NULL
+                int(row['isAdult']) if pd.notna(row['isAdult']) else 0,
+                date_map.get(start_year),
+                date_map.get(end_year),
+                int(row['runtimeMinutes']) if pd.notna(row['runtimeMinutes']) else None,
+                row['titleType'] if pd.notna(row['titleType']) else None
             ))
         
         self.bulk_insert(
-            table,
-            ['tconst', 'primaryTitle', 'originalTitle', 'isAdult', 'startYear', 'endYear', 'runtimeMinutes', 'type_key'],
-            title_data
+            "dim_title",
+            ['tconst', 'primaryTitle', 'originalTitle', 'isAdult', 
+             'start_date_key', 'end_date_key', 'runtimeMinutes', 'titleType'],
+            data
         )
-        
-        print(f"  ✓ Loaded {len(title_data):,} titles, skipped {titles_skipped:,} due to missing tconst")
-        self.print_skip_summary('dim_title')
-        return df_basics
+        return df
     
-    def load_dim_episode(self, nrows=None):
-        table = "dim_episode"
-        self.truncate_table(table)
+    def load_bridge_title_genre(self, df_basics):
+        self.truncate_table("bridge_title_genre")
         
-        df = self.read_tsv('title.episode.tsv.gz', nrows=nrows)
+        self.cursor.execute("SELECT tconst, title_key FROM dim_title")
+        title_map = dict(self.cursor.fetchall())
+        
+        self.cursor.execute("SELECT genre_name, genre_key FROM dim_genre")
+        genre_map = dict(self.cursor.fetchall())
+        
+        data = []
+        for _, row in df_basics.iterrows():
+            if row['tconst'] not in title_map:
+                continue
+            if pd.notna(row['genres']) and str(row['genres']) not in ['\\N', 'nan']:
+                genres = [g.strip() for g in str(row['genres']).split(',')]
+                for g in genres:
+                    if g in genre_map:
+                        data.append((title_map[row['tconst']], genre_map[g]))
+        
+        self.bulk_insert('bridge_title_genre', ['title_key', 'genre_key'], data)
+    
+    def load_bridge_title_crew(self, nrows):
+        self.truncate_table("bridge_title_crew")
+        
+        self.cursor.execute("SELECT tconst, title_key FROM dim_title")
+        title_map = dict(self.cursor.fetchall())
+        
+        self.cursor.execute("SELECT nconst, person_key FROM dim_person")
+        person_map = dict(self.cursor.fetchall())
+        
+        data = []
+        
+        # Load crew
+        df_crew = self.read_tsv('title.crew.tsv.gz', nrows)
+        if df_crew is not None:
+            for _, row in df_crew.iterrows():
+                if row['tconst'] not in title_map:
+                    continue
+                tk = title_map[row['tconst']]
+                
+                for col, role in [('directors', 'director'), ('writers', 'writer')]:
+                    if pd.notna(row[col]) and str(row[col]) not in ['\\N', 'nan']:
+                        for nc in [n.strip() for n in str(row[col]).split(',')]:
+                            if nc in person_map:
+                                data.append((tk, person_map[nc], role, None, 0))
+        
+        # Load principals
+        df_principals = self.read_tsv('title.principals.tsv.gz', nrows)
+        if df_principals is not None:
+            for _, row in df_principals.iterrows():
+                if row['tconst'] not in title_map or row['nconst'] not in person_map:
+                    continue
+                
+                role_detail = None
+                if pd.notna(row.get('job')):
+                    role_detail = str(row['job'])[:255]
+                elif pd.notna(row.get('characters')):
+                    role_detail = str(row['characters'])[:255]
+                
+                data.append((
+                    title_map[row['tconst']],
+                    person_map[row['nconst']],
+                    row['category'] if pd.notna(row['category']) else 'unknown',
+                    role_detail,
+                    int(row['ordering']) if pd.notna(row['ordering']) else 0
+                ))
+        
+        self.bulk_insert(
+            'bridge_title_crew',
+            ['title_key', 'person_key', 'role_type', 'role_detail', 'ordering'],
+            data
+        )
+    
+    def load_fact_title_ratings(self, nrows):
+        self.truncate_table("fact_title_ratings")
+        
+        df = self.read_tsv('title.ratings.tsv.gz', nrows)
         if df is None:
             return
         
-        # Get valid tconst and parentTconst values from dim_title
-        self.cursor.execute("SELECT tconst FROM dim_title")
-        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
+        self.cursor.execute("SELECT tconst, title_key FROM dim_title")
+        title_map = dict(self.cursor.fetchall())
         
-        episode_data = []
+        data = [
+            (title_map[row['tconst']],
+             float(row['averageRating']) if pd.notna(row['averageRating']) else None,
+             int(row['numVotes']) if pd.notna(row['numVotes']) else None)
+            for _, row in df.iterrows()
+            if row['tconst'] in title_map
+        ]
+        
+        self.bulk_insert('fact_title_ratings', ['title_key', 'averageRating', 'numVotes'], data)
+    
+    def load_dim_episode(self, nrows):
+        self.truncate_table("dim_episode")
+        
+        df = self.read_tsv('title.episode.tsv.gz', nrows)
+        if df is None:
+            return
+        
+        self.cursor.execute("SELECT tconst, title_key FROM dim_title")
+        title_map = dict(self.cursor.fetchall())
+        
+        data = []
         for _, row in df.iterrows():
-            # Skip if episode tconst not in dim_title
-            if row['tconst'] not in valid_tconsts:
-                self.skip_stats['dim_episode']['tconst_not_found'] += 1
+            if row['tconst'] not in title_map:
                 continue
             
-            # Check if parentTconst exists (if not NULL)
-            parent_tconst = row['parentTconst'] if pd.notna(row['parentTconst']) else None
-            if parent_tconst and parent_tconst not in valid_tconsts:
-                self.skip_stats['dim_episode']['parent_tconst_not_found'] += 1
-                parent_tconst = None  # Set to NULL instead of skipping entire record
+            parent_key = title_map.get(row['parentTconst']) if pd.notna(row['parentTconst']) else None
             
-            episode_data.append((
-                row['tconst'],
-                parent_tconst,
+            data.append((
+                title_map[row['tconst']],
+                parent_key,
                 int(row['seasonNumber']) if pd.notna(row['seasonNumber']) else None,
                 int(row['episodeNumber']) if pd.notna(row['episodeNumber']) else None
             ))
         
-        self.bulk_insert(table, ['tconst', 'parentTconst', 'seasonNumber', 'episodeNumber'], episode_data)
-        self.print_skip_summary('dim_episode')
+        self.bulk_insert('dim_episode', ['title_key', 'parent_title_key', 'seasonNumber', 'episodeNumber'], data)
     
-    def load_dim_akas(self, nrows=None):
-        """Load dim_akas from title.akas.tsv"""
-        table = "dim_akas"
-        self.truncate_table(table)
+    def load_dim_akas(self, nrows):
+        self.truncate_table("dim_akas")
         
-        df = self.read_tsv('title.akas.tsv.gz', nrows=nrows)
-        if df is None:
-            return None
-        
-        # Get valid tconst values from dim_title
-        self.cursor.execute("SELECT tconst FROM dim_title")
-        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
-        
-        akas_data = []
-        for _, row in df.iterrows():
-            # Skip if tconst not in dim_title (FK constraint)
-            if row['titleId'] not in valid_tconsts:
-                self.skip_stats['dim_akas']['tconst_not_found'] += 1
-                continue
-            
-            akas_data.append((
-                row['titleId'],
-                row['title'][:255] if pd.notna(row['title']) else None,
-                row['region'][:10] if pd.notna(row['region']) else None,
-                row['language'][:10] if pd.notna(row['language']) else None,
-                row['types'][:100] if pd.notna(row['types']) else None,
-                row['attributes'][:255] if pd.notna(row['attributes']) else None,
-                int(row['isOriginalTitle']) if pd.notna(row['isOriginalTitle']) else 0
-            ))
-        
-        self.bulk_insert(
-            table,
-            ['tconst', 'title', 'region', 'language', 'types', 'attributes', 'isOriginalTitle'],
-            akas_data
-        )
-        
-        self.print_skip_summary('dim_akas')
-        return df
-    
-    # ========================================
-    # BRIDGES
-    # ========================================
-    
-    def load_bridge_title_genre(self, df_basics):
-        """Load title-genre bridge from title.basics genres column"""
-        table = "bridge_title_genre"
-        self.truncate_table(table)
-        
-        if df_basics is None:
-            print("  ⚠ Skipping - no title data available")
-            return
-        
-        # Get genre_key mappings
-        self.cursor.execute("SELECT genre_name, genre_key FROM dim_genre")
-        genre_map = {name: key for name, key in self.cursor.fetchall()}
-        
-        # Get valid tconst values
-        self.cursor.execute("SELECT tconst FROM dim_title")
-        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
-        
-        bridge_data = []
-        for _, row in df_basics.iterrows():
-            # Skip if tconst not in dim_title (FK constraint)
-            if row['tconst'] not in valid_tconsts:
-                self.skip_stats['bridge_title_genre']['tconst_not_found'] += 1
-                continue
-            
-            if pd.notna(row['genres']) and row['genres'] != '\\N':
-                genres = row['genres'].split(',')
-                for genre in genres:
-                    genre = genre.strip()
-                    if genre in genre_map:
-                        bridge_data.append((row['tconst'], genre_map[genre]))
-                    else:
-                        self.skip_stats['bridge_title_genre']['unknown_genre'] += 1
-            else:
-                self.skip_stats['bridge_title_genre']['no_genres'] += 1
-        
-        self.bulk_insert('bridge_title_genre', ['tconst', 'genre_key'], bridge_data)
-        self.print_skip_summary('bridge_title_genre')
-    
-    def load_bridge_title_director(self, nrows=None):
-        """Load director bridge from title.crew.tsv"""
-        table = "bridge_title_director"
-        self.truncate_table(table)
-        
-        df = self.read_tsv('title.crew.tsv.gz', nrows=nrows)
+        df = self.read_tsv('title.akas.tsv.gz', nrows)
         if df is None:
             return
         
-        # Get person_key mapping
-        self.cursor.execute("SELECT nconst, person_key FROM dim_person")
-        person_map = {nconst: person_key for nconst, person_key in self.cursor.fetchall()}
+        self.cursor.execute("SELECT tconst, title_key FROM dim_title")
+        title_map = dict(self.cursor.fetchall())
         
-        # Get valid tconst values
-        self.cursor.execute("SELECT tconst FROM dim_title")
-        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
+        data = [
+            (title_map[row['titleId']],
+             row['title'][:255] if pd.notna(row['title']) else None,
+             row['region'][:10] if pd.notna(row['region']) else None,
+             int(row['isOriginalTitle']) if pd.notna(row['isOriginalTitle']) else 0)
+            for _, row in df.iterrows()
+            if row['titleId'] in title_map
+        ]
         
-        bridge_data = []
-        for _, row in df.iterrows():
-            # Skip if tconst not in dim_title (FK constraint)
-            if row['tconst'] not in valid_tconsts:
-                self.skip_stats['bridge_title_director']['tconst_not_found'] += 1
-                continue
-            
-            if pd.notna(row['directors']) and row['directors'] != '\\N':
-                directors = row['directors'].split(',')
-                for nconst in directors:
-                    nconst = nconst.strip()
-                    person_key = person_map.get(nconst)
-                    if person_key:
-                        bridge_data.append((row['tconst'], person_key))
-                    else:
-                        self.skip_stats['bridge_title_director']['unknown_person'] += 1
-            else:
-                self.skip_stats['bridge_title_director']['no_directors'] += 1
-        
-        self.bulk_insert('bridge_title_director', ['tconst', 'person_key'], bridge_data)
-        self.print_skip_summary('bridge_title_director')
-    
-    def load_bridge_title_writer(self, nrows=None):
-        """Load writer bridge from title.crew.tsv"""
-        table = "bridge_title_writer"
-        self.truncate_table(table)
-        
-        df = self.read_tsv('title.crew.tsv.gz', nrows=nrows)
-        if df is None:
-            return
-        
-        # Get person_key mapping
-        self.cursor.execute("SELECT nconst, person_key FROM dim_person")
-        person_map = {nconst: person_key for nconst, person_key in self.cursor.fetchall()}
-        
-        # Get valid tconst values
-        self.cursor.execute("SELECT tconst FROM dim_title")
-        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
-        
-        bridge_data = []
-        for _, row in df.iterrows():
-            # Skip if tconst not in dim_title (FK constraint)
-            if row['tconst'] not in valid_tconsts:
-                self.skip_stats['bridge_title_writer']['tconst_not_found'] += 1
-                continue
-            
-            if pd.notna(row['writers']) and row['writers'] != '\\N':
-                writers = row['writers'].split(',')
-                for nconst in writers:
-                    nconst = nconst.strip()
-                    person_key = person_map.get(nconst)
-                    if person_key:
-                        bridge_data.append((row['tconst'], person_key))
-                    else:
-                        self.skip_stats['bridge_title_writer']['unknown_person'] += 1
-            else:
-                self.skip_stats['bridge_title_writer']['no_writers'] += 1
-        
-        self.bulk_insert('bridge_title_writer', ['tconst', 'person_key'], bridge_data)
-        self.print_skip_summary('bridge_title_writer')
-    
-    def load_bridge_title_principal(self, nrows=None):
-        """Load principal cast/crew bridge from title.principals.tsv"""
-        table = "bridge_title_principal"
-        self.truncate_table(table)
-        
-        df = self.read_tsv('title.principals.tsv.gz', nrows=nrows)
-        if df is None:
-            return
-        
-        # Get person_key mapping
-        self.cursor.execute("SELECT nconst, person_key FROM dim_person")
-        person_map = {nconst: person_key for nconst, person_key in self.cursor.fetchall()}
-        
-        # Get valid tconst values
-        self.cursor.execute("SELECT tconst FROM dim_title")
-        valid_tconsts = {row[0] for row in self.cursor.fetchall()}
-        
-        bridge_data = []
-        for _, row in df.iterrows():
-            # Skip if tconst not in dim_title (FK constraint)
-            if row['tconst'] not in valid_tconsts:
-                self.skip_stats['bridge_title_principal']['tconst_not_found'] += 1
-                continue
-            
-            person_key = person_map.get(row['nconst'])
-            if person_key:
-                bridge_data.append((
-                    row['tconst'],
-                    person_key,
-                    row['category'][:100] if pd.notna(row['category']) else None,
-                    row['job'][:255] if pd.notna(row['job']) else None,
-                    row['characters'] if pd.notna(row['characters']) else None
-                ))
-            else:
-                self.skip_stats['bridge_title_principal']['unknown_person'] += 1
-        
-        self.bulk_insert(
-            'bridge_title_principal',
-            ['tconst', 'person_key', 'category', 'job', 'characters'],
-            bridge_data
-        )
-        self.print_skip_summary('bridge_title_principal')
-    
-    # ========================================
-    # FACT TABLE 
-    # ========================================
-    
-    def load_fact_title_ratings(self, nrows=None):
-        """Load fact table by joining ratings with title dimensions"""
-        table = "fact_title_ratings"
-        self.truncate_table(table)
-        
-        # Read ratings
-        df_ratings = self.read_tsv('title.ratings.tsv.gz', nrows=nrows)
-        if df_ratings is None:
-            return
-        
-        # Get lookup mappings from database
-        print("  Building lookup tables...")
-        
-        # Get title_key, startYear and type_key mapping (allow NULL startYear)
-        self.cursor.execute("SELECT tconst, title_key, startYear, type_key FROM dim_title")
-        title_map = {tconst: (title_key, year, type_key) for tconst, title_key, year, type_key in self.cursor.fetchall()}
-        
-        # Get time_key mapping
-        self.cursor.execute("SELECT year, time_key FROM dim_time")
-        time_map = {year: time_key for year, time_key in self.cursor.fetchall()}
-        
-        # Prepare fact data
-        fact_data = []
-        
-        for _, row in df_ratings.iterrows():
-            tconst = row['tconst']
-            
-            # Skip if title not in dimension (FK constraint)
-            if tconst not in title_map:
-                self.skip_stats['fact_title_ratings']['title_not_found'] += 1
-                continue
-            
-            title_key, start_year, type_key = title_map[tconst]
-            
-            # If startYear is NULL or not in time dimension, set time_key to NULL
-            time_key = None
-            if pd.notna(start_year) and start_year in time_map:
-                time_key = time_map[start_year]
-            elif pd.notna(start_year):
-                self.skip_stats['fact_title_ratings']['year_not_in_dim_time'] += 1
-            
-            fact_data.append((
-                tconst,
-                float(row['averageRating']) if pd.notna(row['averageRating']) else None,
-                int(row['numVotes']) if pd.notna(row['numVotes']) else None,
-                title_key,
-                time_key,
-                type_key
-            ))
-        
-        self.bulk_insert(
-            'fact_title_ratings',
-            ['tconst', 'averageRating', 'numVotes', 'title_key', 'time_key', 'type_key'],
-            fact_data
-        )
-        self.print_skip_summary('fact_title_ratings')
+        self.bulk_insert('dim_akas', ['title_key', 'title', 'region', 'isOriginalTitle'], data)
     
     # =====================================================
-    # MAIN ETL 
+    # MAIN
     # =====================================================
     
     def run_etl(self, test_mode=False):
-        start_time = datetime.now()
+        start = datetime.now()
         print("=" * 60)
-        print("IMDB DATA WAREHOUSE ETL")
+        print("IMDb ETL - Star Schema")
         print("=" * 60)
         
         nrows = 10000 if test_mode else None
         if test_mode:
-            print("⚠ TEST MODE: Loading only 10,000 rows per file\n")
+            print("⚠ TEST MODE: 10,000 rows per file\n")
         
         try:
             self.connect()
-            
             if self.disable_fk:
                 self.disable_foreign_keys()
             
-            # =====================================================
-            # PHASE 1: INDEPENDENT DIMENSIONS (no dependencies)
-            # =====================================================
+            self.timed("1/8 dim_date", self.load_dim_date)
             
-            # Step 1: Load static dimensions first
-            self.timed("1/10 dim_time", self.load_dim_time)
-            
-            # Step 2: Load people (independent of titles)
-            df_person = self.timed("2/10 dim_person", self.load_dim_person, nrows)
-            
-            # =====================================================
-            # PHASE 2: TITLE-RELATED DIMENSIONS (complex dependencies)
-            # =====================================================
-            
-            # Step 3: Read title.basics ONCE for metadata extraction
-            print("\n[3/10] Reading title.basics for metadata extraction...")
             df_basics = self.read_tsv('title.basics.tsv.gz', nrows)
             if df_basics is None:
-                raise Exception("Failed to read title.basics - cannot continue")
+                raise Exception("Failed to read title.basics")
             
-            # Step 4: Extract title types FROM the basics data
-            self.timed("4/10 dim_title_type (dynamic)", self.load_dim_title_type, df_basics)
+            self.timed("2/8 dim_genre", self.load_dim_genre, df_basics)
+            self.timed("3/8 dim_person", self.load_dim_person, nrows)
+            self.timed("4/8 dim_title", self.load_dim_title, nrows)
+            self.timed("5/8 bridge_title_genre", self.load_bridge_title_genre, df_basics)
+            self.timed("6/8 bridge_title_crew", self.load_bridge_title_crew, nrows)
+            self.timed("7/8 fact_title_ratings", self.load_fact_title_ratings, nrows)
+            self.timed("8/8 dim_episode + dim_akas", lambda n: (self.load_dim_episode(n), self.load_dim_akas(n)), nrows)
             
-            # Step 5: Extract genres FROM the basics data  
-            self.timed("5/10 dim_genre (dynamic)", self.load_dim_genre, df_basics)
-            
-            # Step 6: Load titles (now that types exist)
-            df_basics = self.timed("6/10 dim_title", self.load_dim_title, df_basics, nrows)
-            
-            # =====================================================
-            # PHASE 3: TITLE-DEPENDENT DIMENSIONS (require dim_title)
-            # =====================================================
-            
-            # Step 7: Load episodes (depends on dim_title)
-            self.timed("7/10 dim_episode", self.load_dim_episode, nrows)
-            
-            # Step 8: Load AKAs (depends on dim_title)
-            self.timed("8/10 dim_akas", self.load_dim_akas, nrows)
-            
-            # =====================================================
-            # PHASE 4: BRIDGE TABLES (require multiple dimensions)
-            # =====================================================
-            
-            print("\n[9/10] Loading bridge tables...")
-            
-            # Bridge 9: Title-Genre (needs dim_title + dim_genre)
-            self.load_bridge_title_genre(df_basics)
-            
-            # Bridge 9: Title-Director (needs dim_title + dim_person)
-            self.load_bridge_title_director(nrows)
-            
-            # Bridge 9: Title-Writer (needs dim_title + dim_person)  
-            self.load_bridge_title_writer(nrows)
-            
-            # Bridge 9: Title-Principal (needs dim_title + dim_person)
-            self.load_bridge_title_principal(nrows)
-            
-            # =====================================================
-            # PHASE 5: FACT TABLE (requires all dimensions)
-            # =====================================================
-            
-            # Step 10: Fact table (needs dim_title, dim_time, dim_title_type)
-            self.timed("10/10 fact_title_ratings", self.load_fact_title_ratings, nrows)
-            
-            elapsed = datetime.now() - start_time
             print("\n" + "=" * 60)
-            print(f"ETL COMPLETED SUCCESSFULLY in {elapsed}")
+            print(f"✓ ETL COMPLETED in {datetime.now() - start}")
             print("=" * 60)
             
         except Exception as e:
-            print(f"\n✗ ETL FAILED: {e}")
+            print(f"\n✗ FAILED: {e}")
             import traceback
             traceback.print_exc()
         finally:
@@ -664,24 +384,14 @@ class IMDBDataLoader:
                 self.enable_foreign_keys()
             self.close()
 
-# =====================================================
-# MAIN EXECUTION (ARGPARSE)
-# =====================================================
 if __name__ == "__main__":
     from config import DB_CONFIG, DATA_PATH
     
-    parser = argparse.ArgumentParser(description="IMDb Data Warehouse ETL Loader")
-    parser.add_argument("--test", action="store_true", help="Run ETL in test mode (10,000 rows per file)")
-    parser.add_argument("--truncate", action="store_true", help="Clear tables before load (full reload)")
-    parser.add_argument("--check-fk", action="store_true", help="Enable foreign key checks during load")
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--test", action="store_true")
+    parser.add_argument("--truncate", action="store_true")
+    parser.add_argument("--check-fk", action="store_true")
     args = parser.parse_args()
     
-    loader = IMDBDataLoader(
-        DB_CONFIG,
-        DATA_PATH,
-        truncate=args.truncate,
-        disable_fk=not args.check_fk
-    )
-    
-    loader.run_etl(test_mode=args.test)
+    loader = IMDBDataLoader(DB_CONFIG, DATA_PATH, args.truncate, not args.check_fk)
+    loader.run_etl(args.test)
