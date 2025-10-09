@@ -131,7 +131,7 @@ class IMDBDataLoader:
     def load_dim_time(self):
         table = "dim_time"
         self.truncate_table(table)
-        years = list(range(1874, 2031))
+        years = list(range(1874, 2041))
         time_data = [(year, (year // 10) * 10, (year // 100) + 1) for year in years]
         self.bulk_insert(table, ['year', 'decade', 'century'], time_data)
 
@@ -174,7 +174,7 @@ class IMDBDataLoader:
         df['endYear'] = pd.to_numeric(df['endYear'], errors='coerce')
         df['runtimeMinutes'] = pd.to_numeric(df['runtimeMinutes'], errors='coerce')
         df = df[df['startYear'].notna()]
-        df = df[(df['startYear'] >= 1874) & (df['startYear'] <= 2030)]
+        df = df[(df['startYear'] >= 1874) & (df['startYear'] <= 2040)]
 
         self.cursor.execute("SELECT titleType, type_key FROM dim_title_type")
         type_map = {titleType: type_key for titleType, type_key in self.cursor.fetchall()}
