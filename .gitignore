@@ -1,0 +1,19 @@
+# env
+.env
+
+# Virtual environment
+venv/
+
+# Data files
+data/raw/
+*.tsv
+*.tsv.gz
+*.csv
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary or output files
+etl/__pycache__/
+*.log
