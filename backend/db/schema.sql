@@ -5,125 +5,107 @@ DROP DATABASE IF EXISTS imdb_star_schema;
 CREATE DATABASE imdb_star_schema;
 USE imdb_star_schema;
 
--- ============================================================
--- TIME DIMENSION
--- ============================================================
-
-CREATE TABLE dim_date (
-  date_key INT AUTO_INCREMENT PRIMARY KEY,
-  year INT NOT NULL UNIQUE,
-  decade INT NOT NULL,
-  century INT NOT NULL,
-  INDEX idx_year (year),
-  INDEX idx_decade (decade)
+-- Dimension: Time
+-- Hierarchy: year -> decade -> era
+CREATE TABLE Dim_Time (
+    timeKey INT PRIMARY KEY AUTO_INCREMENT,
+    year INT NOT NULL,
+    decade VARCHAR(10),
+    era VARCHAR(50),
+    UNIQUE(year)
 );
 
--- ============================================================
--- CORE DIMENSIONS
--- ============================================================
-
-CREATE TABLE dim_genre (
-  genre_key INT AUTO_INCREMENT PRIMARY KEY,
-  genre_name VARCHAR(50) UNIQUE NOT NULL,
-  INDEX idx_genre_name (genre_name)
+-- Dimension: Title
+-- Core title information
+CREATE TABLE Dim_Title (
+    tconst VARCHAR(20) PRIMARY KEY,
+    primaryTitle VARCHAR(500),
+    originalTitle VARCHAR(500),
+    titleType VARCHAR(50),
+    startYear INT,
+    endYear INT,
+    runtimeMinutes INT,
+    INDEX idx_titleType (titleType),
+    INDEX idx_startYear (startYear),
+    INDEX idx_titleType_year (titleType, startYear)
 );
 
-CREATE TABLE dim_person (
-  person_key INT AUTO_INCREMENT PRIMARY KEY,
-  nconst VARCHAR(20) UNIQUE NOT NULL,
-  primaryName VARCHAR(255),
-  birthYear INT,
-  deathYear INT,
-  INDEX idx_nconst (nconst)
+-- Dimension: Genre
+CREATE TABLE Dim_Genre (
+    genreKey INT PRIMARY KEY AUTO_INCREMENT,
+    genreName VARCHAR(50) UNIQUE NOT NULL
 );
 
-CREATE TABLE dim_title (
-  title_key INT AUTO_INCREMENT PRIMARY KEY,
-  tconst VARCHAR(20) UNIQUE NOT NULL,
-  primaryTitle VARCHAR(255),
-  originalTitle VARCHAR(255),
-  isAdult BOOLEAN,
-  start_date_key INT,
-  end_date_key INT,
-  runtimeMinutes INT,
-  titleType VARCHAR(50),
-  INDEX idx_tconst (tconst),
-  INDEX idx_title_type (titleType),
-  INDEX idx_start_date (start_date_key),
-  FOREIGN KEY (start_date_key) REFERENCES dim_date(date_key),
-  FOREIGN KEY (end_date_key) REFERENCES dim_date(date_key)
+-- Bridge: Title-Genre (many-to-many)
+-- Handles the genres array from title.basics
+CREATE TABLE Bridge_Title_Genre (
+    tconst VARCHAR(20),
+    genreKey INT,
+    PRIMARY KEY (tconst, genreKey),
+    FOREIGN KEY (tconst) REFERENCES Dim_Title(tconst) ON DELETE CASCADE,
+    FOREIGN KEY (genreKey) REFERENCES Dim_Genre(genreKey) ON DELETE CASCADE,
+    INDEX idx_genre (genreKey)
 );
 
--- ============================================================
--- FACT TABLE
--- ============================================================
-
-CREATE TABLE fact_title_ratings (
-  rating_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  title_key INT NOT NULL UNIQUE,
-  averageRating DECIMAL(3,1),
-  numVotes INT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_title (title_key),
-  INDEX idx_rating (averageRating),
-  INDEX idx_votes (numVotes),
-  FOREIGN KEY (title_key) REFERENCES dim_title(title_key) ON DELETE CASCADE
+-- Dimension: Episode
+-- Hierarchy: episode -> season -> series
+CREATE TABLE Dim_Episode (
+    episodeTconst VARCHAR(20) PRIMARY KEY,
+    parentTconst VARCHAR(20),
+    seasonNumber INT,
+    episodeNumber INT,
+    FOREIGN KEY (episodeTconst) REFERENCES Dim_Title(tconst) ON DELETE CASCADE,
+    FOREIGN KEY (parentTconst) REFERENCES Dim_Title(tconst) ON DELETE CASCADE,
+    INDEX idx_parent (parentTconst),
+    INDEX idx_season (parentTconst, seasonNumber),
+    INDEX idx_episode (parentTconst, seasonNumber, episodeNumber)
 );
 
--- ============================================================
--- BRIDGE TABLES
--- ============================================================
-
-CREATE TABLE bridge_title_genre (
-  title_key INT NOT NULL,
-  genre_key INT NOT NULL,
-  PRIMARY KEY (title_key, genre_key),
-  INDEX idx_title (title_key),
-  INDEX idx_genre (genre_key),
-  FOREIGN KEY (title_key) REFERENCES dim_title(title_key) ON DELETE CASCADE,
-  FOREIGN KEY (genre_key) REFERENCES dim_genre(genre_key) ON DELETE CASCADE
+-- Dimension: Person
+CREATE TABLE Dim_Person (
+    nconst VARCHAR(20) PRIMARY KEY,
+    primaryName VARCHAR(200),
+    primaryProfession VARCHAR(200),
+    INDEX idx_name (primaryName)
 );
 
-CREATE TABLE bridge_title_crew (
-  crew_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  title_key INT NOT NULL,
-  person_key INT NOT NULL,
-  role_type VARCHAR(50) NOT NULL,
-  role_detail VARCHAR(255),
-  ordering INT,
-  INDEX idx_title (title_key),
-  INDEX idx_person (person_key),
-  INDEX idx_role (role_type),
-  INDEX idx_title_role (title_key, role_type),
-  UNIQUE KEY uk_crew (title_key, person_key, role_type, ordering),
-  FOREIGN KEY (title_key) REFERENCES dim_title(title_key) ON DELETE CASCADE,
-  FOREIGN KEY (person_key) REFERENCES dim_person(person_key) ON DELETE CASCADE
+-- Bridge: Person Known For Titles
+-- Handles the knownForTitles array from name.basics
+CREATE TABLE Bridge_Person_KnownFor (
+    nconst VARCHAR(20),
+    tconst VARCHAR(20),
+    PRIMARY KEY (nconst, tconst),
+    FOREIGN KEY (nconst) REFERENCES Dim_Person(nconst) ON DELETE CASCADE,
+    FOREIGN KEY (tconst) REFERENCES Dim_Title(tconst) ON DELETE CASCADE,
+    INDEX idx_title (tconst)
 );
 
--- ============================================================
--- OTHER TABLES
--- ============================================================
-
-CREATE TABLE dim_episode (
-  episode_key INT AUTO_INCREMENT PRIMARY KEY,
-  title_key INT NOT NULL UNIQUE,
-  parent_title_key INT,
-  seasonNumber INT,
-  episodeNumber INT,
-  INDEX idx_title (title_key),
-  INDEX idx_parent (parent_title_key),
-  INDEX idx_season (seasonNumber),
-  FOREIGN KEY (title_key) REFERENCES dim_title(title_key) ON DELETE CASCADE,
-  FOREIGN KEY (parent_title_key) REFERENCES dim_title(title_key) ON DELETE SET NULL
+-- Bridge: Title-Person Crew
+-- Handles directors/writers from title.crew and all cast/crew from title.principals
+CREATE TABLE Bridge_Title_Person (
+    tconst VARCHAR(20),
+    nconst VARCHAR(20),
+    category VARCHAR(100),
+    ordering INT,
+    PRIMARY KEY (tconst, nconst, ordering),
+    FOREIGN KEY (tconst) REFERENCES Dim_Title(tconst) ON DELETE CASCADE,
+    FOREIGN KEY (nconst) REFERENCES Dim_Person(nconst) ON DELETE CASCADE,
+    INDEX idx_person (nconst),
+    INDEX idx_category (category),
+    INDEX idx_person_category (nconst, category)
 );
 
-CREATE TABLE dim_akas (
-  aka_key INT AUTO_INCREMENT PRIMARY KEY,
-  title_key INT NOT NULL,
-  title VARCHAR(255),
-  region VARCHAR(10),
-  isOriginalTitle BOOLEAN,
-  INDEX idx_title (title_key),
-  INDEX idx_region (region),
-  FOREIGN KEY (title_key) REFERENCES dim_title(title_key) ON DELETE CASCADE
+-- Fact Table: Title Performance
+-- Central fact table with measures
+CREATE TABLE Fact_Title_Performance (
+    tconst VARCHAR(20) PRIMARY KEY,
+    timeKey INT,
+    averageRating DECIMAL(3,1),
+    numVotes INT,
+    FOREIGN KEY (tconst) REFERENCES Dim_Title(tconst) ON DELETE CASCADE,
+    FOREIGN KEY (timeKey) REFERENCES Dim_Time(timeKey) ON DELETE SET NULL,
+    INDEX idx_rating (averageRating),
+    INDEX idx_votes (numVotes),
+    INDEX idx_time (timeKey),
+    INDEX idx_rating_votes (averageRating, numVotes)
 );
