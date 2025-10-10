@@ -75,9 +75,9 @@ class IMDBDataLoader:
                 keep_default_na=True,
                 low_memory=False,
                 nrows=nrows,
-                quoting=3,  # QUOTE_NONE - prevent quote interpretation
+                quoting=3,
                 encoding='utf-8',
-                on_bad_lines='warn'  # Show warnings for malformed rows
+                on_bad_lines='warn'
             )
             print(f"  ✓ Loaded {len(df):,} rows")
             return df
@@ -86,11 +86,6 @@ class IMDBDataLoader:
             return None
     
     def bulk_insert(self, table, columns, data, batch_size=50000, use_ignore=True):
-        """
-        Insert data with progress tracking and error handling
-        use_ignore=True: Use INSERT IGNORE (skip duplicates silently)
-        use_ignore=False: Use regular INSERT (fail on constraint violations)
-        """
         if not data:
             print(f"  ⚠ No data to insert")
             return
@@ -109,7 +104,7 @@ class IMDBDataLoader:
                 self.cursor.executemany(query, batch)
                 inserted += self.cursor.rowcount
                 
-                if i % (batch_size * 5) == 0:  # Commit every 5 batches
+                if i % (batch_size * 5) == 0:
                     self.conn.commit()
                 
                 print(f"  Progress: {i + len(batch):,}/{total:,}", end='\r')
@@ -134,7 +129,6 @@ class IMDBDataLoader:
         return result
     
     def print_summary(self):
-        """Print loading statistics"""
         print("\n" + "="*60)
         print("LOAD SUMMARY")
         print("="*60)
@@ -147,14 +141,12 @@ class IMDBDataLoader:
     # =====================================================
     
     def load_dim_time(self):
-        """Load time dimension with year, decade, era"""
         self.truncate_table("Dim_Time")
         
         data = []
         for year in range(1874, 2033):
             decade = f"{(year // 10) * 10}s"
             
-            # Define eras
             if year < 1920:
                 era = "Silent Era (Pre-1920)"
             elif year < 1960:
@@ -175,7 +167,6 @@ class IMDBDataLoader:
         self.bulk_insert("Dim_Time", ['year', 'decade', 'era'], data, use_ignore=False)
     
     def load_dim_genre(self, df_basics):
-        """Extract unique genres from title.basics"""
         self.truncate_table("Dim_Genre")
         
         genres = set()
@@ -187,17 +178,10 @@ class IMDBDataLoader:
         self.bulk_insert("Dim_Genre", ['genreName'], data, use_ignore=False)
     
     def load_dim_person(self, nrows):
-        """
-        Load all people - comprehensive approach to avoid missing references
-        1. Load from name.basics
-        2. Add stub entries for people in crew/principals but not in name.basics
-        """
         self.truncate_table("Dim_Person")
         
-        # Specify columns to use, skipping birthYear and deathYear
         usecols = ['nconst', 'primaryName', 'primaryProfession', 'knownForTitles']
         
-        # Read name.basics - this is our primary source
         print(f"  Reading name.basics.tsv.gz...")
         try:
             df_names = pd.read_csv(
@@ -216,7 +200,6 @@ class IMDBDataLoader:
             print(f"  ✗ Error: {e}")
             return None
         
-        # Collect all person IDs from all sources
         all_nconsts = set(df_names['nconst'].dropna())
         additional_nconsts = set()
         
@@ -238,7 +221,6 @@ class IMDBDataLoader:
         print(f"  Found {len(all_nconsts):,} people in name.basics")
         print(f"  Found {len(additional_nconsts):,} additional people in crew/principals")
         
-        # Build person info map from name.basics
         person_data = []
         for _, row in df_names.iterrows():
             person_data.append((
@@ -247,7 +229,6 @@ class IMDBDataLoader:
                 str(row['primaryProfession'])[:200] if pd.notna(row['primaryProfession']) else None
             ))
         
-        # Add stub entries for additional people (not in name.basics)
         for nconst in additional_nconsts:
             person_data.append((nconst, f"[Unknown - {nconst}]", None))
         
@@ -256,10 +237,8 @@ class IMDBDataLoader:
         return df_names
     
     def load_dim_title(self, nrows):
-        """Load all titles from title.basics"""
         self.truncate_table("Dim_Title")
         
-        # Specify columns to use, skipping isAdult
         usecols = ['tconst', 'titleType', 'primaryTitle', 'originalTitle', 
                    'startYear', 'endYear', 'runtimeMinutes', 'genres']
         
@@ -272,7 +251,7 @@ class IMDBDataLoader:
                 keep_default_na=True,
                 low_memory=False,
                 nrows=nrows,
-                usecols=usecols,  # Only read columns we need
+                usecols=usecols,
                 quoting=3,
                 encoding='utf-8'
             )
@@ -285,43 +264,19 @@ class IMDBDataLoader:
             return None
         
         data = []
-        invalid_runtime_count = 0
-        
-        for idx, row in df.iterrows():
+        for _, row in df.iterrows():
             if pd.isna(row['tconst']):
                 continue
-            
-            # Safely parse year fields
-            start_year = int(row['startYear']) if pd.notna(row['startYear']) else None
-            end_year = int(row['endYear']) if pd.notna(row['endYear']) else None
-            
-            # Safely parse runtime - validate it's actually numeric
-            runtime = None
-            if pd.notna(row['runtimeMinutes']):
-                try:
-                    # Try to convert to float (more forgiving than int)
-                    # Then convert to int if it's a whole number
-                    runtime_val = float(row['runtimeMinutes'])
-                    runtime = int(runtime_val) if runtime_val.is_integer() else round(runtime_val)
-                except (ValueError, TypeError):
-                    # If conversion fails, log the problematic row for debugging
-                    if invalid_runtime_count == 0:  # Only print first occurrence
-                        print(f"  ⚠ Invalid runtime at row {idx}: tconst={row['tconst']}, value='{row['runtimeMinutes']}'")
-                    invalid_runtime_count += 1
-                    runtime = None
             
             data.append((
                 row['tconst'],
                 row['primaryTitle'][:500] if pd.notna(row['primaryTitle']) else None,
                 row['originalTitle'][:500] if pd.notna(row['originalTitle']) else None,
                 row['titleType'] if pd.notna(row['titleType']) else None,
-                start_year,
-                end_year,
-                runtime
+                int(row['startYear']) if pd.notna(row['startYear']) else None,
+                int(row['endYear']) if pd.notna(row['endYear']) else None,
+                int(row['runtimeMinutes']) if pd.notna(row['runtimeMinutes']) else None
             ))
-        
-        if invalid_runtime_count > 0:
-            print(f"  ⚠ Found {invalid_runtime_count} invalid runtime values (set to NULL)")
         
         self.bulk_insert(
             "Dim_Title",
@@ -332,10 +287,8 @@ class IMDBDataLoader:
         return df
     
     def load_bridge_title_genre(self, df_basics):
-        """Load title-genre relationships"""
         self.truncate_table("Bridge_Title_Genre")
         
-        # Get genre mapping
         self.cursor.execute("SELECT genreName, genreKey FROM Dim_Genre")
         genre_map = dict(self.cursor.fetchall())
         
@@ -350,35 +303,24 @@ class IMDBDataLoader:
                     if g in genre_map:
                         data.append((row['tconst'], genre_map[g]))
         
-        # Use INSERT IGNORE to skip if title doesn't exist in Dim_Title
         self.bulk_insert('Bridge_Title_Genre', ['tconst', 'genreKey'], data)
     
     def load_dim_episode(self, nrows):
-        """
-        Load episode information
-        Handle missing parent series gracefully by setting parentTconst to NULL
-        """
         self.truncate_table("Dim_Episode")
         
         df = self.read_tsv('title.episode.tsv.gz', nrows)
         if df is None:
             return
         
-        # Get all valid title IDs to check parent existence
         self.cursor.execute("SELECT tconst FROM Dim_Title")
         valid_titles = set(row[0] for row in self.cursor.fetchall())
         
         data = []
         orphaned = 0
         for _, row in df.iterrows():
-            if pd.isna(row['tconst']):
+            if pd.isna(row['tconst']) or row['tconst'] not in valid_titles:
                 continue
             
-            # Only add episodes that exist in Dim_Title
-            if row['tconst'] not in valid_titles:
-                continue
-            
-            # Check if parent exists, if not set to NULL
             parent_tconst = None
             if pd.notna(row['parentTconst']) and row['parentTconst'] in valid_titles:
                 parent_tconst = row['parentTconst']
@@ -392,7 +334,8 @@ class IMDBDataLoader:
                 int(row['episodeNumber']) if pd.notna(row['episodeNumber']) else None
             ))
         
-        print(f"  ⚠ {orphaned} episodes have missing parent series (set to NULL)")
+        if orphaned > 0:
+            print(f"  ⚠ {orphaned} episodes have missing parent series (set to NULL)")
         
         self.bulk_insert(
             'Dim_Episode', 
@@ -401,14 +344,9 @@ class IMDBDataLoader:
         )
     
     def load_bridge_person_knownfor(self, df_names, nrows):
-        """
-        Load person's known-for titles
-        Only insert relationships where BOTH person AND title exist
-        """
         self.truncate_table("Bridge_Person_KnownFor")
         
         if df_names is None:
-            # Re-read with correct columns
             usecols = ['nconst', 'primaryName', 'primaryProfession', 'knownForTitles']
             print(f"  Reading name.basics.tsv.gz...")
             try:
@@ -428,12 +366,11 @@ class IMDBDataLoader:
                 print(f"  ✗ Error: {e}")
                 return
         
-        # Get valid title IDs
         self.cursor.execute("SELECT tconst FROM Dim_Title")
         valid_titles = set(row[0] for row in self.cursor.fetchall())
         
         data = []
-        skipped_titles = 0
+        skipped = 0
         for _, row in df_names.iterrows():
             if pd.isna(row['nconst']):
                 continue
@@ -444,21 +381,16 @@ class IMDBDataLoader:
                     if tconst and tconst in valid_titles:
                         data.append((row['nconst'], tconst))
                     elif tconst:
-                        skipped_titles += 1
+                        skipped += 1
         
-        print(f"  ⚠ Skipped {skipped_titles} knownFor relationships (title not in dataset)")
+        if skipped > 0:
+            print(f"  ⚠ Skipped {skipped} relationships (title not in dataset)")
         
-        # Use INSERT IGNORE in case person doesn't exist (shouldn't happen but defensive)
         self.bulk_insert('Bridge_Person_KnownFor', ['nconst', 'tconst'], data)
     
     def load_bridge_title_person(self, nrows):
-        """
-        Load all crew relationships from title.crew and title.principals
-        Skip only relationships where either title or person is missing
-        """
         self.truncate_table("Bridge_Title_Person")
         
-        # Get valid IDs
         self.cursor.execute("SELECT tconst FROM Dim_Title")
         valid_titles = set(row[0] for row in self.cursor.fetchall())
         
@@ -467,27 +399,24 @@ class IMDBDataLoader:
         
         data = []
         
-        # Load from title.crew (directors and writers)
+        # Load from title.crew
         df_crew = self.read_tsv('title.crew.tsv.gz', nrows)
         if df_crew is not None:
             for _, row in df_crew.iterrows():
                 if pd.isna(row['tconst']) or row['tconst'] not in valid_titles:
                     continue
                 
-                # Directors
                 if pd.notna(row['directors']) and str(row['directors']) not in ['\\N', 'nan']:
                     for idx, nc in enumerate([n.strip() for n in str(row['directors']).split(',')]):
                         if nc and nc in valid_persons:
                             data.append((row['tconst'], nc, 'director', idx + 1))
                 
-                # Writers
                 if pd.notna(row['writers']) and str(row['writers']) not in ['\\N', 'nan']:
                     for idx, nc in enumerate([n.strip() for n in str(row['writers']).split(',')]):
                         if nc and nc in valid_persons:
                             data.append((row['tconst'], nc, 'writer', idx + 1000))
         
-        # Load from title.principals (all cast and crew)
-        # Specify columns to use, skipping job and characters
+        # Load from title.principals
         usecols = ['tconst', 'ordering', 'nconst', 'category']
         
         print(f"  Reading title.principals.tsv.gz...")
@@ -509,7 +438,6 @@ class IMDBDataLoader:
                 if pd.isna(row['tconst']) or pd.isna(row['nconst']):
                     continue
                 
-                # Skip if either doesn't exist
                 if row['tconst'] not in valid_titles or row['nconst'] not in valid_persons:
                     continue
                 
@@ -520,7 +448,6 @@ class IMDBDataLoader:
         except Exception as e:
             print(f"  ✗ Error reading principals: {e}")
         
-        # Use INSERT IGNORE to handle any duplicate (tconst, nconst, ordering) combinations
         self.bulk_insert(
             'Bridge_Title_Person',
             ['tconst', 'nconst', 'category', 'ordering'],
@@ -528,36 +455,28 @@ class IMDBDataLoader:
         )
     
     def load_fact_title_performance(self, nrows):
-        """Load ratings into fact table"""
         self.truncate_table("Fact_Title_Performance")
         
         df = self.read_tsv('title.ratings.tsv.gz', nrows)
         if df is None:
             return
         
-        # Get time key mapping
         self.cursor.execute("SELECT year, timeKey FROM Dim_Time")
         time_map = dict(self.cursor.fetchall())
         
-        # Get title start years
         self.cursor.execute("SELECT tconst, startYear FROM Dim_Title")
         title_years = dict(self.cursor.fetchall())
         
         data = []
         for _, row in df.iterrows():
-            if pd.isna(row['tconst']):
+            if pd.isna(row['tconst']) or row['tconst'] not in title_years:
                 continue
             
-            # Skip if title doesn't exist
-            if row['tconst'] not in title_years:
-                continue
-            
-            tconst = row['tconst']
-            year = title_years.get(tconst)
+            year = title_years.get(row['tconst'])
             time_key = time_map.get(year) if year else None
             
             data.append((
-                tconst,
+                row['tconst'],
                 time_key,
                 float(row['averageRating']) if pd.notna(row['averageRating']) else None,
                 int(row['numVotes']) if pd.notna(row['numVotes']) else None
@@ -588,10 +507,8 @@ class IMDBDataLoader:
             if self.disable_fk:
                 self.disable_foreign_keys()
             
-            # WAVE 1: Load all dimensions (no dependencies)
             self.timed("1/9 Dim_Time", self.load_dim_time)
             
-            # Read title.basics with correct columns
             usecols = ['tconst', 'titleType', 'primaryTitle', 'originalTitle', 
                        'startYear', 'endYear', 'runtimeMinutes', 'genres']
             print(f"\n{'='*60}\nReading title.basics for genre extraction\n{'='*60}")
@@ -616,8 +533,6 @@ class IMDBDataLoader:
             self.timed("2/9 Dim_Genre", self.load_dim_genre, df_basics)
             df_names = self.timed("3/9 Dim_Person", self.load_dim_person, nrows)
             self.timed("4/9 Dim_Title", self.load_dim_title, nrows)
-            
-            # WAVE 2: Load bridges and fact (dimensions must exist)
             self.timed("5/9 Bridge_Title_Genre", self.load_bridge_title_genre, df_basics)
             self.timed("6/9 Dim_Episode", self.load_dim_episode, nrows)
             self.timed("7/9 Bridge_Person_KnownFor", self.load_bridge_person_knownfor, df_names, nrows)
