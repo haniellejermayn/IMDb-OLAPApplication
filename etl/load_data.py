@@ -74,7 +74,10 @@ class IMDBDataLoader:
                 na_values=['\\N'],
                 keep_default_na=True,
                 low_memory=False,
-                nrows=nrows
+                nrows=nrows,
+                quoting=3,  # QUOTE_NONE - prevent quote interpretation
+                encoding='utf-8',
+                on_bad_lines='warn'  # Show warnings for malformed rows
             )
             print(f"  ✓ Loaded {len(df):,} rows")
             return df
@@ -191,9 +194,26 @@ class IMDBDataLoader:
         """
         self.truncate_table("Dim_Person")
         
+        # Specify columns to use, skipping birthYear and deathYear
+        usecols = ['nconst', 'primaryName', 'primaryProfession', 'knownForTitles']
+        
         # Read name.basics - this is our primary source
-        df_names = self.read_tsv('name.basics.tsv.gz', nrows)
-        if df_names is None:
+        print(f"  Reading name.basics.tsv.gz...")
+        try:
+            df_names = pd.read_csv(
+                f'{self.data_path}name.basics.tsv.gz',
+                sep='\t',
+                na_values=['\\N'],
+                keep_default_na=True,
+                low_memory=False,
+                nrows=nrows,
+                usecols=usecols,
+                quoting=3,
+                encoding='utf-8'
+            )
+            print(f"  ✓ Loaded {len(df_names):,} rows")
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
             return None
         
         # Collect all person IDs from all sources
@@ -239,18 +259,56 @@ class IMDBDataLoader:
         """Load all titles from title.basics"""
         self.truncate_table("Dim_Title")
         
-        df = self.read_tsv('title.basics.tsv.gz', nrows)
+        # Specify columns to use, skipping isAdult
+        usecols = ['tconst', 'titleType', 'primaryTitle', 'originalTitle', 
+                   'startYear', 'endYear', 'runtimeMinutes', 'genres']
+        
+        print(f"  Reading title.basics.tsv.gz...")
+        try:
+            df = pd.read_csv(
+                f'{self.data_path}title.basics.tsv.gz',
+                sep='\t',
+                na_values=['\\N'],
+                keep_default_na=True,
+                low_memory=False,
+                nrows=nrows,
+                usecols=usecols,  # Only read columns we need
+                quoting=3,
+                encoding='utf-8'
+            )
+            print(f"  ✓ Loaded {len(df):,} rows")
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
+            return None
+        
         if df is None:
             return None
         
         data = []
-        for _, row in df.iterrows():
+        invalid_runtime_count = 0
+        
+        for idx, row in df.iterrows():
             if pd.isna(row['tconst']):
                 continue
             
+            # Safely parse year fields
             start_year = int(row['startYear']) if pd.notna(row['startYear']) else None
             end_year = int(row['endYear']) if pd.notna(row['endYear']) else None
-            runtime = int(row['runtimeMinutes']) if pd.notna(row['runtimeMinutes']) else None
+            
+            # Safely parse runtime - validate it's actually numeric
+            runtime = None
+            if pd.notna(row['runtimeMinutes']):
+                try:
+                    # Try to convert to float (more forgiving than int)
+                    # Then convert to int if it's a whole number
+                    runtime_val = float(row['runtimeMinutes'])
+                    runtime = int(runtime_val) if runtime_val.is_integer() else round(runtime_val)
+                except (ValueError, TypeError):
+                    # If conversion fails, log the problematic row for debugging
+                    if invalid_runtime_count == 0:  # Only print first occurrence
+                        print(f"  ⚠ Invalid runtime at row {idx}: tconst={row['tconst']}, value='{row['runtimeMinutes']}'")
+                    invalid_runtime_count += 1
+                    runtime = None
             
             data.append((
                 row['tconst'],
@@ -261,6 +319,9 @@ class IMDBDataLoader:
                 end_year,
                 runtime
             ))
+        
+        if invalid_runtime_count > 0:
+            print(f"  ⚠ Found {invalid_runtime_count} invalid runtime values (set to NULL)")
         
         self.bulk_insert(
             "Dim_Title",
@@ -347,8 +408,24 @@ class IMDBDataLoader:
         self.truncate_table("Bridge_Person_KnownFor")
         
         if df_names is None:
-            df_names = self.read_tsv('name.basics.tsv.gz', nrows)
-            if df_names is None:
+            # Re-read with correct columns
+            usecols = ['nconst', 'primaryName', 'primaryProfession', 'knownForTitles']
+            print(f"  Reading name.basics.tsv.gz...")
+            try:
+                df_names = pd.read_csv(
+                    f'{self.data_path}name.basics.tsv.gz',
+                    sep='\t',
+                    na_values=['\\N'],
+                    keep_default_na=True,
+                    low_memory=False,
+                    nrows=nrows,
+                    usecols=usecols,
+                    quoting=3,
+                    encoding='utf-8'
+                )
+                print(f"  ✓ Loaded {len(df_names):,} rows")
+            except Exception as e:
+                print(f"  ✗ Error: {e}")
                 return
         
         # Get valid title IDs
@@ -410,8 +487,24 @@ class IMDBDataLoader:
                             data.append((row['tconst'], nc, 'writer', idx + 1000))
         
         # Load from title.principals (all cast and crew)
-        df_principals = self.read_tsv('title.principals.tsv.gz', nrows)
-        if df_principals is not None:
+        # Specify columns to use, skipping job and characters
+        usecols = ['tconst', 'ordering', 'nconst', 'category']
+        
+        print(f"  Reading title.principals.tsv.gz...")
+        try:
+            df_principals = pd.read_csv(
+                f'{self.data_path}title.principals.tsv.gz',
+                sep='\t',
+                na_values=['\\N'],
+                keep_default_na=True,
+                low_memory=False,
+                nrows=nrows,
+                usecols=usecols,
+                quoting=3,
+                encoding='utf-8'
+            )
+            print(f"  ✓ Loaded {len(df_principals):,} rows")
+            
             for _, row in df_principals.iterrows():
                 if pd.isna(row['tconst']) or pd.isna(row['nconst']):
                     continue
@@ -424,6 +517,8 @@ class IMDBDataLoader:
                 ordering = int(row['ordering']) if pd.notna(row['ordering']) else 0
                 
                 data.append((row['tconst'], row['nconst'], category, ordering))
+        except Exception as e:
+            print(f"  ✗ Error reading principals: {e}")
         
         # Use INSERT IGNORE to handle any duplicate (tconst, nconst, ordering) combinations
         self.bulk_insert(
@@ -496,8 +591,26 @@ class IMDBDataLoader:
             # WAVE 1: Load all dimensions (no dependencies)
             self.timed("1/9 Dim_Time", self.load_dim_time)
             
-            df_basics = self.read_tsv('title.basics.tsv.gz', nrows)
-            if df_basics is None:
+            # Read title.basics with correct columns
+            usecols = ['tconst', 'titleType', 'primaryTitle', 'originalTitle', 
+                       'startYear', 'endYear', 'runtimeMinutes', 'genres']
+            print(f"\n{'='*60}\nReading title.basics for genre extraction\n{'='*60}")
+            print(f"  Reading title.basics.tsv.gz...")
+            try:
+                df_basics = pd.read_csv(
+                    f'{self.data_path}title.basics.tsv.gz',
+                    sep='\t',
+                    na_values=['\\N'],
+                    keep_default_na=True,
+                    low_memory=False,
+                    nrows=nrows,
+                    usecols=usecols,
+                    quoting=3,
+                    encoding='utf-8'
+                )
+                print(f"  ✓ Loaded {len(df_basics):,} rows")
+            except Exception as e:
+                print(f"  ✗ Error: {e}")
                 raise Exception("Failed to read title.basics")
             
             self.timed("2/9 Dim_Genre", self.load_dim_genre, df_basics)
@@ -505,7 +618,6 @@ class IMDBDataLoader:
             self.timed("4/9 Dim_Title", self.load_dim_title, nrows)
             
             # WAVE 2: Load bridges and fact (dimensions must exist)
-            # Note: Bridge_Person_KnownFor is loaded AFTER both Dim_Person and Dim_Title exist
             self.timed("5/9 Bridge_Title_Genre", self.load_bridge_title_genre, df_basics)
             self.timed("6/9 Dim_Episode", self.load_dim_episode, nrows)
             self.timed("7/9 Bridge_Person_KnownFor", self.load_bridge_person_knownfor, df_names, nrows)
