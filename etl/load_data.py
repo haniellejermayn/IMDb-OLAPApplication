@@ -8,14 +8,12 @@ import time
 from collections import defaultdict
 
 class IMDBDataLoader:
-    def __init__(self, db_config, data_path, truncate=True, disable_fk=True):
+    def __init__(self, db_config, data_path):
         self.db_config = db_config
         self.data_path = data_path
         self.conn = None
         self.cursor = None
-        self.truncate = truncate
-        self.disable_fk = disable_fk
-        self.stats = defaultdict(lambda: {'inserted': 0, 'skipped': 0, 'errors': 0})
+        self.stats = defaultdict(lambda: {'inserted': 0, 'errors': 0})
     
     # =====================================================
     # UTILITIES
@@ -57,8 +55,6 @@ class IMDBDataLoader:
             print(f"⚠ Could not re-enable checks: {e}")
     
     def truncate_table(self, table):
-        if not self.truncate:
-            return
         try:
             self.cursor.execute(f"TRUNCATE TABLE {table}")
             print(f"  ↻ Cleared {table}")
@@ -85,14 +81,13 @@ class IMDBDataLoader:
             print(f"  ✗ Error: {e}")
             return None
     
-    def bulk_insert(self, table, columns, data, batch_size=50000, use_ignore=True):
+    def bulk_insert(self, table, columns, data, batch_size=50000):
         if not data:
             print(f"  ⚠ No data to insert")
             return
         
         placeholders = ', '.join(['%s'] * len(columns))
-        ignore_clause = "IGNORE" if use_ignore else ""
-        query = f"INSERT {ignore_clause} INTO {table} ({', '.join(columns)}) VALUES ({placeholders})"
+        query = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})"
         
         total = len(data)
         inserted = 0
@@ -110,12 +105,10 @@ class IMDBDataLoader:
                 print(f"  Progress: {i + len(batch):,}/{total:,}", end='\r')
             
             self.conn.commit()
-            skipped = total - inserted
             
             self.stats[table]['inserted'] = inserted
-            self.stats[table]['skipped'] = skipped
             
-            print(f"\n  ✓ Inserted {inserted:,} rows, Skipped {skipped:,} ({time.time() - start:.2f}s)")
+            print(f"\n  ✓ Inserted {inserted:,} rows ({time.time() - start:.2f}s)")
         except Error as e:
             print(f"\n  ✗ Error: {e}")
             self.conn.rollback()
@@ -133,7 +126,7 @@ class IMDBDataLoader:
         print("LOAD SUMMARY")
         print("="*60)
         for table, stats in sorted(self.stats.items()):
-            print(f"{table:30} | Inserted: {stats['inserted']:>8,} | Skipped: {stats['skipped']:>8,}")
+            print(f"{table:30} | Inserted: {stats['inserted']:>8,}")
         print("="*60)
     
     # =====================================================
@@ -143,8 +136,10 @@ class IMDBDataLoader:
     def load_dim_time(self):
         self.truncate_table("Dim_Time")
         
+        current_year = datetime.now().year
         data = []
-        for year in range(1874, 2033):
+        
+        for year in range(1874, current_year + 11):
             decade = f"{(year // 10) * 10}s"
             
             if year < 1920:
@@ -164,7 +159,7 @@ class IMDBDataLoader:
             
             data.append((year, decade, era))
         
-        self.bulk_insert("Dim_Time", ['year', 'decade', 'era'], data, use_ignore=False)
+        self.bulk_insert("Dim_Time", ['year', 'decade', 'era'], data)
     
     def load_dim_genre(self, df_basics):
         self.truncate_table("Dim_Genre")
@@ -175,7 +170,7 @@ class IMDBDataLoader:
                 genres.update([x.strip() for x in str(g).split(',') if x.strip()])
         
         data = [(g,) for g in sorted(genres)]
-        self.bulk_insert("Dim_Genre", ['genreName'], data, use_ignore=False)
+        self.bulk_insert("Dim_Genre", ['genreName'], data)
     
     def load_dim_person(self, nrows):
         self.truncate_table("Dim_Person")
@@ -495,7 +490,7 @@ class IMDBDataLoader:
     def run_etl(self, test_mode=False):
         start = datetime.now()
         print("=" * 60)
-        print("IMDb ETL - Star Schema")
+        print("IMDb ETL - Star Schema (Full Refresh)")
         print("=" * 60)
         
         nrows = 10000 if test_mode else None
@@ -504,8 +499,7 @@ class IMDBDataLoader:
         
         try:
             self.connect()
-            if self.disable_fk:
-                self.disable_foreign_keys()
+            self.disable_foreign_keys()
             
             self.timed("1/9 Dim_Time", self.load_dim_time)
             
@@ -550,18 +544,15 @@ class IMDBDataLoader:
             import traceback
             traceback.print_exc()
         finally:
-            if self.disable_fk:
-                self.enable_foreign_keys()
+            self.enable_foreign_keys()
             self.close()
 
 if __name__ == "__main__":
     from config import DB_CONFIG, DATA_PATH
     
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--test", action="store_true", help="Run in test mode (10k rows)")
-    parser.add_argument("--truncate", action="store_true", help="Truncate tables before loading")
-    parser.add_argument("--check-fk", action="store_true", help="Keep FK checks enabled")
+    parser = argparse.ArgumentParser(description="IMDb ETL Pipeline - Full Refresh")
+    parser.add_argument("--test", action="store_true", help="Run in test mode (10k rows per file)")
     args = parser.parse_args()
     
-    loader = IMDBDataLoader(DB_CONFIG, DATA_PATH, args.truncate, not args.check_fk)
+    loader = IMDBDataLoader(DB_CONFIG, DATA_PATH)
     loader.run_etl(args.test)
