@@ -1,4 +1,4 @@
-# env
+# Environment variables
 .env
 
 # Virtual environment
@@ -14,6 +14,7 @@ data/raw/
 __pycache__/
 *.pyc
 
-# Temporary or output files
+# ETL temporary or output files
 etl/__pycache__/
+etl/*.log
 *.log

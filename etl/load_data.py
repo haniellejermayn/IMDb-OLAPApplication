@@ -7,6 +7,23 @@ import argparse
 import time
 from collections import defaultdict
 
+import logging
+
+# ==========================================
+# LOGGING CONFIGURATION
+# ==========================================
+log_dir = Path(__file__).resolve().parent
+log_filename = log_dir / f"etl_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(log_filename, encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
 class IMDBDataLoader:
     def __init__(self, db_config, data_path):
         self.db_config = db_config
@@ -23,9 +40,9 @@ class IMDBDataLoader:
         try:
             self.conn = mysql.connector.connect(**self.db_config)
             self.cursor = self.conn.cursor()
-            print("✓ Connected to database")
+            logging.info("✓ Connected to database")
         except Error as e:
-            print(f"✗ Database connection failed: {e}")
+            logging.error(f"✗ Database connection failed: {e}")
             sys.exit(1)
     
     def close(self):
@@ -33,16 +50,16 @@ class IMDBDataLoader:
             self.cursor.close()
         if self.conn:
             self.conn.close()
-        print("✓ Database connection closed")
+        logging.info("✓ Database connection closed")
     
     def disable_foreign_keys(self):
         try:
             self.cursor.execute("SET FOREIGN_KEY_CHECKS=0;")
             self.cursor.execute("SET UNIQUE_CHECKS=0;")
             self.cursor.execute("SET AUTOCOMMIT=0;")
-            print("✓ Constraints disabled for faster loading")
+            logging.info("✓ Constraints disabled for faster loading")
         except Error as e:
-            print(f"⚠ Could not disable checks: {e}")
+            logging.warning(f"⚠ Could not disable checks: {e}")
     
     def enable_foreign_keys(self):
         try:
@@ -50,19 +67,19 @@ class IMDBDataLoader:
             self.cursor.execute("SET UNIQUE_CHECKS=1;")
             self.cursor.execute("SET FOREIGN_KEY_CHECKS=1;")
             self.cursor.execute("SET AUTOCOMMIT=1;")
-            print("✓ Constraints re-enabled")
+            logging.info("✓ Constraints re-enabled")
         except Error as e:
-            print(f"⚠ Could not re-enable checks: {e}")
+            logging.warning(f"⚠ Could not re-enable checks: {e}")
     
     def truncate_table(self, table):
         try:
             self.cursor.execute(f"TRUNCATE TABLE {table}")
-            print(f"  ↻ Cleared {table}")
+            logging.info(f"  ↻ Cleared {table}")
         except Error as e:
-            print(f"  ⚠ Could not clear {table}: {e}")
-    
+            logging.warning(f"  ⚠ Could not clear {table}: {e}")
+
     def read_tsv(self, filename, nrows=None):
-        print(f"  Reading {filename}...")
+        logging.info(f"  Reading {filename}...")
         try:
             df = pd.read_csv(
                 f'{self.data_path}{filename}',
@@ -75,15 +92,15 @@ class IMDBDataLoader:
                 encoding='utf-8',
                 on_bad_lines='warn'
             )
-            print(f"  ✓ Loaded {len(df):,} rows")
+            logging.info(f"  ✓ Loaded {len(df):,} rows")
             return df
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            logging.error(f"  ✗ Error: {e}")
             return None
     
     def bulk_insert(self, table, columns, data, batch_size=50000):
         if not data:
-            print(f"  ⚠ No data to insert")
+            logging.warning(f"  ⚠ No data to insert")
             return
         
         placeholders = ', '.join(['%s'] * len(columns))
@@ -108,26 +125,26 @@ class IMDBDataLoader:
             
             self.stats[table]['inserted'] = inserted
             
-            print(f"\n  ✓ Inserted {inserted:,} rows ({time.time() - start:.2f}s)")
+            logging.info(f"\n  ✓ Inserted {inserted:,} rows ({time.time() - start:.2f}s)")
         except Error as e:
-            print(f"\n  ✗ Error: {e}")
+            logging.error(f"\n  ✗ Error: {e}")
             self.conn.rollback()
             self.stats[table]['errors'] += 1
     
     def timed(self, label, func, *args):
-        print(f"\n{'='*60}\n[{label}]\n{'='*60}")
+        logging.info(f"\n{'='*60}\n[{label}]\n{'='*60}")
         start = time.time()
         result = func(*args)
-        print(f"✓ Completed in {time.time() - start:.2f}s")
+        logging.info(f"✓ Completed in {time.time() - start:.2f}s")
         return result
     
     def print_summary(self):
-        print("\n" + "="*60)
-        print("LOAD SUMMARY")
-        print("="*60)
+        logging.info("\n" + "="*60)
+        logging.info("LOAD SUMMARY")
+        logging.info("="*60)
         for table, stats in sorted(self.stats.items()):
-            print(f"{table:30} | Inserted: {stats['inserted']:>8,}")
-        print("="*60)
+            logging.info(f"{table:30} | Inserted: {stats['inserted']:>8,}")
+        logging.info("="*60)
     
     # =====================================================
     # LOADERS
@@ -177,7 +194,7 @@ class IMDBDataLoader:
         
         usecols = ['nconst', 'primaryName', 'primaryProfession', 'knownForTitles']
         
-        print(f"  Reading name.basics.tsv.gz...")
+        logging.info(f"  Reading name.basics.tsv.gz...")
         try:
             df_names = pd.read_csv(
                 f'{self.data_path}name.basics.tsv.gz',
@@ -190,9 +207,9 @@ class IMDBDataLoader:
                 quoting=3,
                 encoding='utf-8'
             )
-            print(f"  ✓ Loaded {len(df_names):,} rows")
+            logging.info(f"  ✓ Loaded {len(df_names):,} rows")
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            logging.error(f"  ✗ Error: {e}")
             return None
         
         all_nconsts = set(df_names['nconst'].dropna())
@@ -212,10 +229,10 @@ class IMDBDataLoader:
         if df_principals is not None:
             principal_ids = set(df_principals['nconst'].dropna())
             additional_nconsts.update([n for n in principal_ids if n not in all_nconsts])
-        
-        print(f"  Found {len(all_nconsts):,} people in name.basics")
-        print(f"  Found {len(additional_nconsts):,} additional people in crew/principals")
-        
+
+        logging.info(f"  Found {len(all_nconsts):,} people in name.basics")
+        logging.info(f"  Found {len(additional_nconsts):,} additional people in crew/principals")
+
         person_data = []
         for _, row in df_names.iterrows():
             person_data.append((
@@ -236,8 +253,8 @@ class IMDBDataLoader:
         
         usecols = ['tconst', 'titleType', 'primaryTitle', 'originalTitle', 
                    'startYear', 'endYear', 'runtimeMinutes', 'genres']
-        
-        print(f"  Reading title.basics.tsv.gz...")
+
+        logging.info(f"  Reading title.basics.tsv.gz...")
         try:
             df = pd.read_csv(
                 f'{self.data_path}title.basics.tsv.gz',
@@ -250,9 +267,9 @@ class IMDBDataLoader:
                 quoting=3,
                 encoding='utf-8'
             )
-            print(f"  ✓ Loaded {len(df):,} rows")
+            logging.info(f"  ✓ Loaded {len(df):,} rows")
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            logging.error(f"  ✗ Error: {e}")
             return None
         
         if df is None:
@@ -330,7 +347,7 @@ class IMDBDataLoader:
             ))
         
         if orphaned > 0:
-            print(f"  ⚠ {orphaned} episodes have missing parent series (set to NULL)")
+            logging.warning(f"  ⚠ {orphaned} episodes have missing parent series (set to NULL)")
         
         self.bulk_insert(
             'Dim_Episode', 
@@ -343,7 +360,7 @@ class IMDBDataLoader:
         
         if df_names is None:
             usecols = ['nconst', 'primaryName', 'primaryProfession', 'knownForTitles']
-            print(f"  Reading name.basics.tsv.gz...")
+            logging.info(f"  Reading name.basics.tsv.gz...")
             try:
                 df_names = pd.read_csv(
                     f'{self.data_path}name.basics.tsv.gz',
@@ -356,9 +373,9 @@ class IMDBDataLoader:
                     quoting=3,
                     encoding='utf-8'
                 )
-                print(f"  ✓ Loaded {len(df_names):,} rows")
+                logging.info(f"  ✓ Loaded {len(df_names):,} rows")
             except Exception as e:
-                print(f"  ✗ Error: {e}")
+                logging.error(f"  ✗ Error: {e}")
                 return
         
         self.cursor.execute("SELECT tconst FROM Dim_Title")
@@ -379,7 +396,7 @@ class IMDBDataLoader:
                         skipped += 1
         
         if skipped > 0:
-            print(f"  ⚠ Skipped {skipped} relationships (title not in dataset)")
+            logging.warning(f"  ⚠ Skipped {skipped} relationships (title not in dataset)")
         
         self.bulk_insert('Bridge_Person_KnownFor', ['nconst', 'tconst'], data)
     
@@ -413,8 +430,8 @@ class IMDBDataLoader:
         
         # Load from title.principals
         usecols = ['tconst', 'ordering', 'nconst', 'category']
-        
-        print(f"  Reading title.principals.tsv.gz...")
+
+        logging.info(f"  Reading title.principals.tsv.gz...")
         try:
             df_principals = pd.read_csv(
                 f'{self.data_path}title.principals.tsv.gz',
@@ -427,7 +444,7 @@ class IMDBDataLoader:
                 quoting=3,
                 encoding='utf-8'
             )
-            print(f"  ✓ Loaded {len(df_principals):,} rows")
+            logging.info(f"  ✓ Loaded {len(df_principals):,} rows")
             
             for _, row in df_principals.iterrows():
                 if pd.isna(row['tconst']) or pd.isna(row['nconst']):
@@ -441,7 +458,7 @@ class IMDBDataLoader:
                 
                 data.append((row['tconst'], row['nconst'], category, ordering))
         except Exception as e:
-            print(f"  ✗ Error reading principals: {e}")
+            logging.error(f"  ✗ Error reading principals: {e}")
         
         self.bulk_insert(
             'Bridge_Title_Person',
@@ -489,14 +506,14 @@ class IMDBDataLoader:
     
     def run_etl(self, test_mode=False):
         start = datetime.now()
-        print("=" * 60)
-        print("IMDb ETL - Star Schema (Full Refresh)")
-        print("=" * 60)
-        
+        logging.info("=" * 60)
+        logging.info("IMDb ETL - Star Schema (Full Refresh)")
+        logging.info("=" * 60)
+
         nrows = 10000 if test_mode else None
         if test_mode:
-            print("⚠ TEST MODE: 10,000 rows per file\n")
-        
+            logging.warning("⚠ TEST MODE: 10,000 rows per file\n")
+
         try:
             self.connect()
             self.disable_foreign_keys()
@@ -505,8 +522,8 @@ class IMDBDataLoader:
             
             usecols = ['tconst', 'titleType', 'primaryTitle', 'originalTitle', 
                        'startYear', 'endYear', 'runtimeMinutes', 'genres']
-            print(f"\n{'='*60}\nReading title.basics for genre extraction\n{'='*60}")
-            print(f"  Reading title.basics.tsv.gz...")
+            logging.info(f"\n{'='*60}\nReading title.basics for genre extraction\n{'='*60}")
+            logging.info(f"  Reading title.basics.tsv.gz...")
             try:
                 df_basics = pd.read_csv(
                     f'{self.data_path}title.basics.tsv.gz',
@@ -519,9 +536,9 @@ class IMDBDataLoader:
                     quoting=3,
                     encoding='utf-8'
                 )
-                print(f"  ✓ Loaded {len(df_basics):,} rows")
+                logging.info(f"  ✓ Loaded {len(df_basics):,} rows")
             except Exception as e:
-                print(f"  ✗ Error: {e}")
+                logging.error(f"  ✗ Error: {e}")
                 raise Exception("Failed to read title.basics")
             
             self.timed("2/9 Dim_Genre", self.load_dim_genre, df_basics)
@@ -534,13 +551,13 @@ class IMDBDataLoader:
             self.timed("9/9 Fact_Title_Performance", self.load_fact_title_performance, nrows)
             
             self.print_summary()
-            
-            print("\n" + "=" * 60)
-            print(f"✓ ETL COMPLETED in {datetime.now() - start}")
-            print("=" * 60)
-            
+
+            logging.info("\n" + "=" * 60)
+            logging.info(f"✓ ETL COMPLETED in {datetime.now() - start}")
+            logging.info("=" * 60)
+
         except Exception as e:
-            print(f"\n✗ FAILED: {e}")
+            logging.error(f"\n✗ FAILED: {e}")
             import traceback
             traceback.print_exc()
         finally:
