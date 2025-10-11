@@ -37,6 +37,14 @@ DB_PASSWORD=your_password_here
 DB_NAME=imdb_star_schema
 ```
 
+### 5. Run Frontend
+
+Make sure you are in **(venv)**.
+
+```
+python backend/api/app.py
+```
+
 ---
 
 ## 📂 Data Files

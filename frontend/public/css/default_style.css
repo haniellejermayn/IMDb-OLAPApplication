@@ -1,0 +1,30 @@
+/* ---------- GENERAL ---------- */
+@font-face {
+    font-family: 'Lexend';
+    src: url('../resources/Lexend.ttf');
+}
+
+* {
+     box-sizing: border-box;
+     font-family: "Lexend"; 
+}
+
+html, body {
+    min-width: 1000px; 
+    overflow-x: auto;
+}
+
+body {
+    background-color: #131313;
+    color: rgb(233, 233, 233);
+    font-family: "Lexend";
+    margin: 0;
+    min-height: 100vh;
+    width: auto;
+
+    display: flex;
+    align-items: start;
+    justify-content: center;
+    padding: 20px;
+}
+/* ---------- GENERAL ---------- */
