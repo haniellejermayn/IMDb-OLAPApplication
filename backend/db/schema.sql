@@ -86,8 +86,7 @@ CREATE TABLE Bridge_Title_Person (
     tconst VARCHAR(20),
     nconst VARCHAR(20),
     category VARCHAR(100),
-    ordering INT,
-    PRIMARY KEY (tconst, nconst, ordering),
+    PRIMARY KEY (tconst, nconst, category),
     FOREIGN KEY (tconst) REFERENCES Dim_Title(tconst) ON DELETE CASCADE,
     FOREIGN KEY (nconst) REFERENCES Dim_Person(nconst) ON DELETE CASCADE,
     INDEX idx_person (nconst),
@@ -96,7 +95,6 @@ CREATE TABLE Bridge_Title_Person (
 );
 
 -- Fact Table: Title Performance
--- Central fact table with measures
 CREATE TABLE Fact_Title_Performance (
     tconst VARCHAR(20) PRIMARY KEY,
     timeKey INT,

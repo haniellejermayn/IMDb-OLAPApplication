@@ -409,7 +409,8 @@ class IMDBDataLoader:
         self.cursor.execute("SELECT nconst FROM Dim_Person")
         valid_persons = set(row[0] for row in self.cursor.fetchall())
         
-        data = []
+        # dict to deduplicate: key = (tconst, nconst, category)
+        unique_records = {}
         
         # Load from title.crew
         df_crew = self.read_tsv('title.crew.tsv.gz', nrows)
@@ -419,17 +420,19 @@ class IMDBDataLoader:
                     continue
                 
                 if pd.notna(row['directors']) and str(row['directors']) not in ['\\N', 'nan']:
-                    for idx, nc in enumerate([n.strip() for n in str(row['directors']).split(',')]):
+                    for nc in [n.strip() for n in str(row['directors']).split(',')]:
                         if nc and nc in valid_persons:
-                            data.append((row['tconst'], nc, 'director', idx + 1))
+                            key = (row['tconst'], nc, 'director')
+                            unique_records[key] = (row['tconst'], nc, 'director')
                 
                 if pd.notna(row['writers']) and str(row['writers']) not in ['\\N', 'nan']:
-                    for idx, nc in enumerate([n.strip() for n in str(row['writers']).split(',')]):
+                    for nc in [n.strip() for n in str(row['writers']).split(',')]:
                         if nc and nc in valid_persons:
-                            data.append((row['tconst'], nc, 'writer', idx + 1000))
+                            key = (row['tconst'], nc, 'writer')
+                            unique_records[key] = (row['tconst'], nc, 'writer')
         
-        # Load from title.principals
-        usecols = ['tconst', 'ordering', 'nconst', 'category']
+        # Load from title.principals (will overwrite crew data if same key exists)
+        usecols = ['tconst', 'nconst', 'category']
 
         logging.info(f"  Reading title.principals.tsv.gz...")
         try:
@@ -454,15 +457,20 @@ class IMDBDataLoader:
                     continue
                 
                 category = row['category'] if pd.notna(row['category']) else 'unknown'
-                ordering = int(row['ordering']) if pd.notna(row['ordering']) else 0
+                key = (row['tconst'], row['nconst'], category)
+                unique_records[key] = (row['tconst'], row['nconst'], category)
                 
-                data.append((row['tconst'], row['nconst'], category, ordering))
         except Exception as e:
             logging.error(f"  ✗ Error reading principals: {e}")
         
+        # Convert to list for bulk insert
+        data = list(unique_records.values())
+        
+        logging.info(f"  Total unique records: {len(data):,}")
+        
         self.bulk_insert(
             'Bridge_Title_Person',
-            ['tconst', 'nconst', 'category', 'ordering'],
+            ['tconst', 'nconst', 'category'],
             data
         )
     
