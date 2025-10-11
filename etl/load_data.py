@@ -250,35 +250,15 @@ class IMDBDataLoader:
         
         return df_names
     
-    def load_dim_title(self, nrows):
+    def load_dim_title(self, df_basics):
         self.truncate_table("Dim_Title")
         
-        usecols = ['tconst', 'titleType', 'primaryTitle', 'originalTitle', 
-                   'startYear', 'endYear', 'runtimeMinutes', 'genres']
-
-        logging.info(f"  Reading title.basics.tsv.gz...")
-        try:
-            df = pd.read_csv(
-                f'{self.data_path}title.basics.tsv.gz',
-                sep='\t',
-                na_values=['\\N'],
-                keep_default_na=True,
-                low_memory=False,
-                nrows=nrows,
-                usecols=usecols,
-                quoting=3,
-                encoding='utf-8'
-            )
-            logging.info(f"  ✓ Loaded {len(df):,} rows")
-        except Exception as e:
-            logging.error(f"  ✗ Error: {e}")
-            return None
-        
-        if df is None:
+        if df_basics is None:
+            logging.error("  ✗ df_basics is None, cannot load Dim_Title")
             return None
         
         data = []
-        for _, row in df.iterrows():
+        for _, row in df_basics.iterrows():  
             if pd.isna(row['tconst']):
                 continue
             
@@ -295,10 +275,10 @@ class IMDBDataLoader:
         self.bulk_insert(
             "Dim_Title",
             ['tconst', 'primaryTitle', 'originalTitle', 'titleType', 
-             'startYear', 'endYear', 'runtimeMinutes'],
+            'startYear', 'endYear', 'runtimeMinutes'],
             data
         )
-        return df
+        return df_basics
     
     def load_bridge_title_genre(self, df_basics):
         self.truncate_table("Bridge_Title_Genre")
@@ -553,7 +533,7 @@ class IMDBDataLoader:
             
             self.timed("2/9 Dim_Genre", self.load_dim_genre, df_basics)
             df_names = self.timed("3/9 Dim_Person", self.load_dim_person, nrows)
-            self.timed("4/9 Dim_Title", self.load_dim_title, nrows)
+            self.timed("4/9 Dim_Title", self.load_dim_title, df_basics)
             self.timed("5/9 Bridge_Title_Genre", self.load_bridge_title_genre, df_basics)
             self.timed("6/9 Dim_Episode", self.load_dim_episode, nrows)
             self.timed("7/9 Bridge_Person_KnownFor", self.load_bridge_person_knownfor, df_names, nrows)
