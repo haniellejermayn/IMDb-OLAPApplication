@@ -1,0 +1,18 @@
+:root {
+    /* ---------- Base Colors ---------- */
+    --background-color: var(--black);
+    --text-color: var(--white);
+    --text-color-muted: var(--gray);
+    --border-color-muted: var(--gray);
+
+    --primary-color-dark: var(--purple-dark);
+    --primary-color-light: var(--purple-light);
+    --secondary-color-dark: var(--yellow-dark);
+    --secondary-color-light: var(--yellow-light);
+    --accent-color: var(--purple-mid);
+
+    /* ---------- Components Colors ---------- */
+    --card-bg-color-dark: var(--violet-dark);
+    --card-bg-color-mid: var(--violet-light);
+    --card-bg-color-light: var(--violet-mid);
+}
