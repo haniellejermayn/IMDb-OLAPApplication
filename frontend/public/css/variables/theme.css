@@ -16,4 +16,7 @@
     --card-bg-color-dark: var(--violet-dark);
     --card-bg-color-mid: var(--violet-mid);
     --card-bg-color-light: var(--violet-light);
+
+    --button-bg-color-mid: var(--violet-mid);
+    --button-bg-color-light: var(--violet-light);
 }

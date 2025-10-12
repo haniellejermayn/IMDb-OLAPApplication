@@ -45,23 +45,36 @@
     transition: background-color 0.2s, color 0.2s;
 }
 
-#browse_button {
-     display: flex;
-     justify-content: center;
-}
-
-#about_button {
-     display: flex;
-     justify-content: end;
-}
-
 .button a {
      display: flex;
      align-items: center;
 
      text-decoration: none;
      color: var(--text-color-muted);
-     font-size: 15px;
+     font-size: 12px;
+}
+
+
+#dashboard_button {
+     display: flex;
+     justify-content: center;
+     background: linear-gradient(0deg, var(--card-bg-color-mid), var(--background-color));
+}
+
+#dashboard_button a {
+     display: flex;
+     justify-content: center;
+     color: var(--text-color);
+}
+
+#browse_button a {
+     display: flex;
+     justify-content: center;
+}
+
+#about_button a {
+     display: flex;
+     justify-content: end;
 }
 
 .button:hover {

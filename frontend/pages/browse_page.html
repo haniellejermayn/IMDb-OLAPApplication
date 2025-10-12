@@ -1,0 +1,143 @@
+<html>
+     <head>
+          <title> MCO1 - OLAP </title>
+
+          <link rel="stylesheet" type="text/css" href="public/css/default_style.css">
+          <link rel="stylesheet" type="text/css" href="public/css/browse_page_style.css">
+          <link rel="stylesheet" type="text/css" href="public/css/variables/color.css">
+          <link rel="stylesheet" type="text/css" href="public/css/variables/theme.css">
+     </head>
+     
+     <body>
+          <div id="main_div">
+               <div id="tab_bar">
+                    <div class="button" id="dashboard_button">
+                         <a href="/">
+                              <img src="/public/resources/dashboard_icon.png" alt="Dashboard Icon" class="tab_icon">
+                              <span>Dashboard</span>
+                         </a>
+                    </div>
+                    <div class="button" id="browse_button">
+                         <a href="/browse_page.html">
+                              <img src="/public/resources/browse_icon.png" alt="Browse Icon" class="tab_icon">
+                              <span>Browse</span>
+                         </a>
+                    </div>
+                    <div class="button" id="about_button">
+                         <a href="/">
+                              <img src="/public/resources/about_icon.png" alt="About Icon" class="tab_icon">
+                              <span>About</span>
+                         </a>
+                    </div>
+               </div>
+               <div id="content_div">
+                    <div id="filter_container">
+                        <h1>Filters</h1>
+                        
+                        <div class="filter_field">
+                            <div class="filter_header">
+                                <span>Genres</span>
+                            </div>
+                            <div id="genre_container">
+                                <div class="genre">
+                                    <img src="/public/resources/checkbox_unchecked_icon.svg" alt="Unchecked Checkbox Icon" class="unchecked_checkbox_icon">
+                                    <span>Comedy</span>
+                                </div>
+                                <div class="genre">
+                                    <img src="/public/resources/checkbox_checked_icon.svg" alt="Checked Checkbox Icon" class="checked_checkbox_icon">
+                                    <span>Horror</span>
+                                </div>
+                                <div class="genre">
+                                    <img src="/public/resources/checkbox_unchecked_icon.svg" alt="Unchecked Checkbox Icon" class="unchecked_checkbox_icon">
+                                    <span>Romance</span>
+                                </div>
+                                <div class="genre">
+                                    <img src="/public/resources/checkbox_checked_icon.svg" alt="Checked Checkbox Icon" class="checked_checkbox_icon">
+                                    <span>Action</span>
+                                </div>
+                                <div class="genre">
+                                    <img src="/public/resources/checkbox_unchecked_icon.svg" alt="Unchecked Checkbox Icon" class="unchecked_checkbox_icon">
+                                    <span>Drama</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter_field">
+                            <div class="filter_header">
+                                <span>Other Genres</span>
+                            </div>
+                            <div id="other_genres_container">
+                                <div class="other_genre">
+                                    <span>Science Fiction</span>
+                                    <img src="/public/resources/remove_icon.svg" alt="Remove Icon" class="remove_icon">
+                                </div>
+                                <div class="other_genre">
+                                    <span>Crime</span>
+                                    <img src="/public/resources/remove_icon.svg" alt="Remove Icon" class="remove_icon">
+                                </div>
+                            </div>
+                            <div class="filter_input" id="other_genres_input"></div>
+                        </div>
+                        <div class="filter_field">
+                            <div class="filter_header">
+                                <span>Minimum Average Rating</span>
+                            </div>
+                            <div class="filter_input" id="min_ave_rating_input"></div>
+                        </div>
+                        <div class="filter_field">
+                            <div class="filter_header">
+                                <span>Runtime (Minutes)</span>
+                            </div>
+                            <div id="runtime_content">
+                                <div class="filter_input runtime_minutes" id="min_runtime"></div>
+                                <span> to </span>
+                                <div class="filter_input runtime_minutes" id="max_runtime"></div>
+                                <span> minutes </span>
+                            </div>
+                        </div>
+                        <div class="filter_field">
+                            <div class="filter_header">
+                                <span>People Included</span>
+                            </div>
+                            <div id="people_included_container">
+                                <div class="people_included">
+                                    <span>Jennifer Aniston</span>
+                                    <img src="/public/resources/remove_icon.svg" alt="Remove Icon" class="remove_icon">
+                                </div>
+                                <div class="people_included">
+                                    <span>David Scchwimmer</span>
+                                    <img src="/public/resources/remove_icon.svg" alt="Remove Icon" class="remove_icon">
+                                </div>
+                            </div>
+                            <div class="filter_input" id="people_included_input"></div>
+                        </div>
+                        <div class="filter_field">
+                            <div class="filter_header">
+                                <span>Completion Status</span>
+                            </div>
+                            <div id="status_container">
+                                <div class="completion_status">
+                                    <img src="/public/resources/radio_button_checked_icon.svg" alt="Checked Radio Button Icon" class="checked_radio_button_icon">
+                                    <span>Ongoing</span>
+                                </div>
+                                <div class="completion_status">
+                                    <img src="/public/resources/radio_button_unchecked_icon.svg" alt="Unchecked Radio Button Icon" class="unchecked_radio_button_icon">
+                                    <span>Complete</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button id="filter_button">
+                            <span>Filter</span>
+                        </button>
+                    </div>
+                    <div id="movie_result_container">
+                        <div class="movie_card"></div>
+                        <div class="movie_card"></div>
+                        <div class="movie_card"></div>
+                        <div class="movie_card"></div>
+                        <div class="movie_card"></div>
+                    </div>
+               </div>
+          </div>
+     </body>
+</html>
