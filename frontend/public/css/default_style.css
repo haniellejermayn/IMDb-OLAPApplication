@@ -15,7 +15,7 @@ html, body {
 }
 
 body {
-    background-color: #131313;
+    background-color: var(--background-color);
     color: rgb(233, 233, 233);
     font-family: "Lexend";
     margin: 0;

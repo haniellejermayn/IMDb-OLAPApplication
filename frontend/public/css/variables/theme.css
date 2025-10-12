@@ -2,8 +2,9 @@
     /* ---------- Base Colors ---------- */
     --background-color: var(--black);
     --text-color: var(--white);
-    --text-color-muted: var(--gray);
-    --border-color-muted: var(--gray);
+    --text-color-muted: var(--gray-light);
+    --border-color: var(--gray-light);
+    --border-color-muted: var(--gray-dark);
 
     --primary-color-dark: var(--purple-dark);
     --primary-color-light: var(--purple-light);
@@ -13,6 +14,6 @@
 
     /* ---------- Components Colors ---------- */
     --card-bg-color-dark: var(--violet-dark);
-    --card-bg-color-mid: var(--violet-light);
-    --card-bg-color-light: var(--violet-mid);
+    --card-bg-color-mid: var(--violet-mid);
+    --card-bg-color-light: var(--violet-light);
 }
