@@ -33,12 +33,6 @@ def health_check():
         "service": "IMDb OLAP API"
     })
 
-# =========== PAGES ============ #
-
-@app.route('/')
-def base_page():
-    return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'base_page.html')
-
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({"error": "Endpoint not found"}), 404
@@ -46,6 +40,12 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
+
+# =========== PAGES ============ #
+
+@app.route('/')
+def base_page():
+    return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'base_page.html')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

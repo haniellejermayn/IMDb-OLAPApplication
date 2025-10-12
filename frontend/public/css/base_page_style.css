@@ -24,20 +24,34 @@
      margin-right: 5px;
 }
 
-.tab_button {
-    display: flex;
-    align-items: center;
-    text-decoration: none;
-    color: #ffffff;
-    padding: 5px 12px;
-    border-radius: 6px;
-    transition: background-color 0.2s, color 0.2s;
-    font-weight: 500;
-    font-size: 15px;
-    gap: 8px;
+.button {
+     padding: 5px 12px;
+     border-radius: 6px;
+     width: 100%;
+
+     transition: background-color 0.2s, color 0.2s;
 }
 
-.tab_button:hover {
-    background-color: #4a3aff; /* purple hover */
+#browse_button {
+     display: flex;
+     justify-content: center;
+}
+
+#about_button {
+     display: flex;
+     justify-content: end;
+}
+
+.button a {
+     display: flex;
+     align-items: center;
+
+     text-decoration: none;
+     color: #ffffff;
+     font-size: 15px;
+}
+
+.button:hover {
+    background-color: #4a3aff;
     color: #fff;
 }
