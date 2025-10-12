@@ -25,9 +25,9 @@ CREATE TABLE Dim_Title (
     startYear INT,
     endYear INT,
     runtimeMinutes INT,
-    INDEX idx_titleType (titleType),
     INDEX idx_startYear (startYear),
-    INDEX idx_titleType_year (titleType, startYear)
+    INDEX idx_titleType_year (titleType, startYear),
+    INDEX idx_primaryTitle (primaryTitle(100))
 );
 
 -- Dimension: Genre
@@ -56,8 +56,6 @@ CREATE TABLE Dim_Episode (
     episodeNumber INT,
     FOREIGN KEY (episodeTconst) REFERENCES Dim_Title(tconst) ON DELETE CASCADE,
     FOREIGN KEY (parentTconst) REFERENCES Dim_Title(tconst) ON DELETE CASCADE,
-    INDEX idx_parent (parentTconst),
-    INDEX idx_season (parentTconst, seasonNumber),
     INDEX idx_episode (parentTconst, seasonNumber, episodeNumber)
 );
 
