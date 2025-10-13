@@ -30,6 +30,7 @@
                          </a>
                     </div>
                </div>
+               
                <div id="content_div">
                     <div id="filter_container">
                         <h1>Filters</h1>
@@ -39,97 +40,93 @@
                                 <span>Genres</span>
                             </div>
                             <div id="genre_container">
-                                <div class="genre">
-                                    <img src="/public/resources/checkbox_unchecked_icon.svg" alt="Unchecked Checkbox Icon" class="unchecked_checkbox_icon">
-                                    <span>Comedy</span>
-                                </div>
-                                <div class="genre">
-                                    <img src="/public/resources/checkbox_checked_icon.svg" alt="Checked Checkbox Icon" class="checked_checkbox_icon">
-                                    <span>Horror</span>
-                                </div>
-                                <div class="genre">
-                                    <img src="/public/resources/checkbox_unchecked_icon.svg" alt="Unchecked Checkbox Icon" class="unchecked_checkbox_icon">
-                                    <span>Romance</span>
-                                </div>
-                                <div class="genre">
-                                    <img src="/public/resources/checkbox_checked_icon.svg" alt="Checked Checkbox Icon" class="checked_checkbox_icon">
-                                    <span>Action</span>
-                                </div>
-                                <div class="genre">
-                                    <img src="/public/resources/checkbox_unchecked_icon.svg" alt="Unchecked Checkbox Icon" class="unchecked_checkbox_icon">
-                                    <span>Drama</span>
-                                </div>
+                                <div class="genre"><input type="checkbox" id="action" name="genre" value="Action"><label for="action">Action</label></div>
+                                <div class="genre"><input type="checkbox" id="adventure" name="genre" value="Adventure"><label for="adventure">Adventure</label></div>
+                                <div class="genre"><input type="checkbox" id="animation" name="genre" value="Animation"><label for="animation">Animation</label></div>
+                                <div class="genre"><input type="checkbox" id="biography" name="genre" value="Biography"><label for="biography">Biography</label></div>
+                                <div class="genre"><input type="checkbox" id="comedy" name="genre" value="Comedy"><label for="comedy">Comedy</label></div>
+                                <div class="genre"><input type="checkbox" id="crime" name="genre" value="Crime"><label for="crime">Crime</label></div>
+                                <div class="genre"><input type="checkbox" id="documentary" name="genre" value="Documentary"><label for="documentary">Documentary</label></div>
+                                <div class="genre"><input type="checkbox" id="drama" name="genre" value="Drama"><label for="drama">Drama</label></div>
+                                <div class="genre"><input type="checkbox" id="family" name="genre" value="Family"><label for="family">Family</label></div>
+                                <div class="genre"><input type="checkbox" id="fantasy" name="genre" value="Fantasy"><label for="fantasy">Fantasy</label></div>
+                                <div class="genre"><input type="checkbox" id="history" name="genre" value="History"><label for="history">History</label></div>
+                                <div class="genre"><input type="checkbox" id="horror" name="genre" value="Horror"><label for="horror">Horror</label></div>
+                                <div class="genre"><input type="checkbox" id="music" name="genre" value="Music"><label for="music">Music</label></div>
+                                <div class="genre"><input type="checkbox" id="musical" name="genre" value="Musical"><label for="musical">Musical</label></div>
+                                <div class="genre"><input type="checkbox" id="mystery" name="genre" value="Mystery"><label for="mystery">Mystery</label></div>
+                                <div class="genre"><input type="checkbox" id="news" name="genre" value="News"><label for="news">News</label></div>
+                                <div class="genre"><input type="checkbox" id="romance" name="genre" value="Romance"><label for="romance">Romance</label></div>
+                                <div class="genre"><input type="checkbox" id="sci-fi" name="genre" value="Sci-Fi"><label for="sci-fi">Sci-Fi</label></div>
+                                <div class="genre"><input type="checkbox" id="short" name="genre" value="Short"><label for="short">Short</label></div>
+                                <div class="genre"><input type="checkbox" id="sport" name="genre" value="Sport"><label for="sport">Sport</label></div>
+                                <div class="genre"><input type="checkbox" id="thriller" name="genre" value="Thriller"><label for="thriller">Thriller</label></div>
+                                <div class="genre"><input type="checkbox" id="war" name="genre" value="War"><label for="war">War</label></div>
+                                <div class="genre"><input type="checkbox" id="western" name="genre" value="Western"><label for="western">Western</label></div>
                             </div>
                         </div>
+
                         <div class="filter_field">
-                            <div class="filter_header">
-                                <span>Other Genres</span>
+                            <div class="filter_header"><span>Minimum Average Rating</span></div>
+                            <div class="filter_input" id="min_ave_rating_input">
+                                <input type="number" id="min_rating" min="0" max="10" step="0.1" placeholder="e.g. 5">
                             </div>
-                            <div id="other_genres_container">
-                                <div class="other_genre">
-                                    <span>Science Fiction</span>
-                                    <img src="/public/resources/remove_icon.svg" alt="Remove Icon" class="remove_icon">
-                                </div>
-                                <div class="other_genre">
-                                    <span>Crime</span>
-                                    <img src="/public/resources/remove_icon.svg" alt="Remove Icon" class="remove_icon">
-                                </div>
-                            </div>
-                            <div class="filter_input" id="other_genres_input"></div>
                         </div>
+
                         <div class="filter_field">
-                            <div class="filter_header">
-                                <span>Minimum Average Rating</span>
-                            </div>
-                            <div class="filter_input" id="min_ave_rating_input"></div>
-                        </div>
-                        <div class="filter_field">
-                            <div class="filter_header">
-                                <span>Runtime (Minutes)</span>
-                            </div>
+                            <div class="filter_header"><span>Runtime (Minutes)</span></div>
                             <div id="runtime_content">
-                                <div class="filter_input runtime_minutes" id="min_runtime"></div>
+                                <div class="filter_input runtime_minutes" id="min_runtime">
+                                    <input type="number" id="min_runtime_val" min="0" placeholder="Min">
+                                </div>
                                 <span> to </span>
-                                <div class="filter_input runtime_minutes" id="max_runtime"></div>
+                                <div class="filter_input runtime_minutes" id="max_runtime">
+                                    <input type="number" id="max_runtime_val" min="0" placeholder="Max">
+                                </div>
                                 <span> minutes </span>
                             </div>
                         </div>
+
                         <div class="filter_field">
                             <div class="filter_header">
                                 <span>People Included</span>
                             </div>
+
                             <div id="people_included_container">
-                                <div class="people_included">
-                                    <span>Jennifer Aniston</span>
-                                    <img src="/public/resources/remove_icon.svg" alt="Remove Icon" class="remove_icon">
-                                </div>
-                                <div class="people_included">
-                                    <span>David Scchwimmer</span>
-                                    <img src="/public/resources/remove_icon.svg" alt="Remove Icon" class="remove_icon">
-                                </div>
+                                <!-- container -->
                             </div>
-                            <div class="filter_input" id="people_included_input"></div>
+
+                            <div class="filter_input" id="people_included_input">
+                                <input
+                                    type="text"
+                                    id="person_input"
+                                    placeholder="Type a name and press Enter"
+                                />
+                            </div>
                         </div>
+
                         <div class="filter_field">
-                            <div class="filter_header">
-                                <span>Completion Status</span>
-                            </div>
+                            <div class="filter_header"><span>Completion Status</span></div>
                             <div id="status_container">
-                                <div class="completion_status">
-                                    <img src="/public/resources/radio_button_checked_icon.svg" alt="Checked Radio Button Icon" class="checked_radio_button_icon">
-                                    <span>Ongoing</span>
-                                </div>
-                                <div class="completion_status">
-                                    <img src="/public/resources/radio_button_unchecked_icon.svg" alt="Unchecked Radio Button Icon" class="unchecked_radio_button_icon">
-                                    <span>Complete</span>
-                                </div>
+                            <div class="completion_status">
+                                <input type="radio" id="ongoing" name="status" value="Ongoing">
+                                <label for="ongoing">Ongoing</label>
+                            </div>
+                            <div class="completion_status">
+                                <input type="radio" id="complete" name="status" value="Complete">
+                                <label for="complete">Complete</label>
+                            </div>
                             </div>
                         </div>
                         
                         <button id="filter_button">
                             <span>Filter</span>
                         </button>
+                        <button id="reset_button" type="button">
+                            <span>Reset</span>
+                        </button>
                     </div>
+                    
                     <div id="movie_result_container">
                         <div class="movie_card"></div>
                         <div class="movie_card"></div>
@@ -139,5 +136,7 @@
                     </div>
                </div>
           </div>
+
+          <script src="public/js/browse_page_script.js"></script>
      </body>
 </html>
