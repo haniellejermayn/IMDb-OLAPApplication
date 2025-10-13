@@ -1,98 +1,108 @@
 // browse_page.js
 
 document.addEventListener("DOMContentLoaded", () => {
-     const filterButton = document.getElementById("filter_button");
-     const peopleContainer = document.getElementById("people_included_container");
-     const personInput = document.getElementById("person_input");
+    const filterButton = document.getElementById("filter_button");
+    const peopleContainer = document.getElementById("people_included_container");
+    const personInput = document.getElementById("person_input");
 
-     // === 🧍 Add person on Enter key ===
-     if (personInput) {
-          personInput.addEventListener("keydown", (e) => {
-               // Use "keydown" instead of "keypress" (better browser support)
-               if (e.key === "Enter") {
-               e.preventDefault(); // prevent accidental form submit
-               const name = personInput.value.trim();
-               if (name) {
+    // === 🧍 Add person on Enter key ===
+    if (personInput) {
+        personInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                const name = personInput.value.trim();
+                if (name) {
                     addPerson(name);
                     personInput.value = "";
-               }
-               }
-          });
-     }
+                }
+            }
+        });
+    }
 
-     // === 🧩 Function to add person tags ===
-     function addPerson(name) {
-          const div = document.createElement("div");
-          div.classList.add("people_included");
+    // === 🧩 Function to add person tags ===
+    function addPerson(name) {
+        const div = document.createElement("div");
+        div.classList.add("people_included");
 
-          const span = document.createElement("span");
-          span.textContent = name;
+        const span = document.createElement("span");
+        span.textContent = name;
 
-          const removeIcon = document.createElement("img");
-          removeIcon.src = "/public/resources/remove_icon.svg";
-          removeIcon.alt = "Remove Icon";
-          removeIcon.classList.add("remove_icon");
+        const removeIcon = document.createElement("img");
+        removeIcon.src = "/public/resources/remove_icon.svg";
+        removeIcon.alt = "Remove Icon";
+        removeIcon.classList.add("remove_icon");
 
-          // Remove on click
-          removeIcon.addEventListener("click", () => div.remove());
+        removeIcon.addEventListener("click", () => div.remove());
 
-          div.appendChild(span);
-          div.appendChild(removeIcon);
-          peopleContainer.appendChild(div);
-     }
+        div.appendChild(span);
+        div.appendChild(removeIcon);
+        peopleContainer.appendChild(div);
+    }
 
-     // === 🎬 Apply Filters ===
-     filterButton.addEventListener("click", () => {
-          const genres = Array.from(
-               document.querySelectorAll("input[name='genre']:checked")
-          ).map((el) => el.value);
+    // === 🎬 Apply Filters ===
+    filterButton.addEventListener("click", () => {
+        // ✅ Required: Report
+        const report = document.querySelector("input[name='report']:checked")?.value;
+        if (!report) {
+            alert("Please select a report!");
+            return;
+        }
 
-          const minRating = document.getElementById("min_rating")?.value || "";
-          const minRuntime = document.getElementById("min_runtime_val")?.value || "";
-          const maxRuntime = document.getElementById("max_runtime_val")?.value || "";
-          const status = document.querySelector("input[name='status']:checked")?.value;
+        // Optional filters
+        const genres = Array.from(document.querySelectorAll("input[name='genre']:checked")).map(el => el.value);
 
-          const people = Array.from(
-               document.querySelectorAll("#people_included_container .people_included span")
-          ).map((el) => el.textContent);
+        const minRating = document.getElementById("min_rating")?.value || "";
+        const minRuntime = document.getElementById("min_runtime_val")?.value || "";
+        const maxRuntime = document.getElementById("max_runtime_val")?.value || "";
 
-          console.log("=== Filter Values ===");
-          console.log("Genres:", genres);
-          console.log("Min Rating:", minRating);
-          console.log("Runtime:", `${minRuntime} - ${maxRuntime}`);
-          console.log("Status:", status);
-          console.log("People Included:", people);
+        const status = document.querySelector("input[name='status']:checked")?.value || "";
 
-          alert("Filters applied! Check console for details.");
-     });
+        const people = Array.from(document.querySelectorAll("#people_included_container .people_included span"))
+            .map(el => el.textContent);
 
-     const resetButton = document.getElementById("reset_button");
+        // Optional: grouping fields (Roll Up / Drill Down)
+        const groupFields = Array.from(document.querySelectorAll("input[name='field']:checked")).map(el => el.value);
 
-     resetButton.addEventListener("click", () => {
-          document.querySelectorAll("input[name='genre']").forEach((checkbox) => {
-               checkbox.checked = false;
-          });
+        console.log("=== Filter Values ===");
+        console.log("Report:", report);
+        console.log("Genres:", genres);
+        console.log("Min Rating:", minRating);
+        console.log("Runtime:", `${minRuntime} - ${maxRuntime}`);
+        console.log("Status:", status);
+        console.log("People Included:", people);
+        console.log("Group By:", groupFields);
 
-          // 2. Clear rating and runtime inputs
-          const inputsToClear = [
-               "min_rating",
-               "min_runtime_val",
-               "max_runtime_val",
-               "person_input"
-          ];
-          inputsToClear.forEach((id) => {
-               const el = document.getElementById(id);
-               if (el) el.value = "";
-          });
+        alert("Filters applied! Check console for details.");
+    });
 
-          const peopleContainer = document.getElementById("people_included_container");
-          peopleContainer.innerHTML = "";
+    // === 🔄 Reset Filters ===
+    const resetButton = document.getElementById("reset_button");
 
-          const ongoing_stat = document.getElementById("ongoing");
-          ongoing_stat.checked = false;
-          const completed_stat = document.getElementById("complete");
-          completed_stat.checked = false;
+    resetButton.addEventListener("click", () => {
+        // Clear genres
+        document.querySelectorAll("input[name='genre']").forEach(cb => cb.checked = false);
 
-          console.log("All filters reset!");
-     });
+        // Clear rating, runtime, and person input
+        ["min_rating", "min_runtime_val", "max_runtime_val", "person_input"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = "";
+        });
+
+        // Clear people tags
+        peopleContainer.innerHTML = "";
+
+        // Clear status
+        ["ongoing", "complete"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.checked = false;
+        });
+
+        // Clear grouping fields
+        document.querySelectorAll("input[name='field']").forEach(cb => cb.checked = false);
+
+        // Clear report selection
+        document.querySelectorAll("input[name='report']").forEach(rb => rb.checked = false);
+
+        console.log("All filters reset!");
+    });
 });
