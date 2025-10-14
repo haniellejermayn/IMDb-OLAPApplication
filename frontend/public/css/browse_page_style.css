@@ -15,6 +15,9 @@
      border-radius: 8px;
      border: 1px solid var(--border-color-muted);
      border-bottom-width: 0;
+     width: 30%;
+     align-items: center;
+     justify-content: center;
 }
 
 #tab_bar::after {
@@ -36,7 +39,7 @@
 
 .button {
     display: flex;
-    width: 150px;
+    width: 100%;
     height: auto;
     align-items: center;
     justify-content: center;
@@ -226,7 +229,6 @@ h1 {
 #person_input:focus {
   border-color: #3b82f6;
 }
-
 
 #status_container {
     display: flex;

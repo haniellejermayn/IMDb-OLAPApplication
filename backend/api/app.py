@@ -45,7 +45,7 @@ def internal_error(error):
 
 @app.route('/')
 def base_page():
-    return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'base_page.html')
+    return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'browse_page.html')
 
 @app.route('/browse_page.html')
 def browse():
