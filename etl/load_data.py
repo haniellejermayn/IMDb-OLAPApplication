@@ -420,20 +420,57 @@ class IMDBDataLoader:
         logging.info("IMDb ETL - Star Schema (Full Refresh)")
         logging.info("=" * 60)
 
-        nrows = 10000 if test_mode else None
-        if test_mode:
-            logging.warning("⚠ TEST MODE: 10,000 rows per file\n")
-
         try:
             self.connect()
             self.disable_foreign_keys()
-            
+
             logging.info(f"\n{'='*60}\nPHASE 1: Preloading Shared Data\n{'='*60}")
-            
-            usecols = ['tconst', 'titleType', 'primaryTitle', 'originalTitle', 
-                    'startYear', 'endYear', 'runtimeMinutes', 'genres']
-            logging.info(f"  Reading title.basics.tsv.gz...")
-            try:
+
+            usecols = [
+                'tconst', 'titleType', 'primaryTitle', 'originalTitle',
+                'startYear', 'endYear', 'runtimeMinutes', 'genres'
+            ]
+
+            # ========================================
+            # TEST MODE: Use consistent subset of titles
+            # ========================================
+            if test_mode:
+                logging.warning("⚠ TEST MODE: Using 5,000 random titles for consistency\n")
+
+                # Load a larger portion to sample from
+                df_basics_full = pd.read_csv(
+                    f'{self.data_path}title.basics.tsv.gz',
+                    sep='\t',
+                    na_values=['\\N'],
+                    keep_default_na=True,
+                    low_memory=False,
+                    nrows=50000,
+                    usecols=usecols,
+                    quoting=3,
+                    encoding='utf-8'
+                )
+                sample_tconsts = set(df_basics_full['tconst'].sample(5000, random_state=42))
+                df_basics = df_basics_full[df_basics_full['tconst'].isin(sample_tconsts)]
+                del df_basics_full
+
+                # Crew and principals filtered by same tconsts
+                df_crew = self.read_tsv('title.crew.tsv.gz')
+                df_crew = df_crew[df_crew['tconst'].isin(sample_tconsts)]
+
+                df_principals = self.read_tsv('title.principals.tsv.gz')
+                df_principals = df_principals[df_principals['tconst'].isin(sample_tconsts)]
+
+                # Ratings filtered by same tconsts
+                df_ratings = self.read_tsv('title.ratings.tsv.gz')
+                df_ratings = df_ratings[df_ratings['tconst'].isin(sample_tconsts)]
+
+                nrows = None  # let downstream use full filtered data
+            else:
+                # ========================================
+                # FULL MODE: Load complete datasets
+                # ========================================
+                nrows = None
+                logging.info("  Reading title.basics.tsv.gz...")
                 df_basics = pd.read_csv(
                     f'{self.data_path}title.basics.tsv.gz',
                     sep='\t',
@@ -446,27 +483,36 @@ class IMDBDataLoader:
                     encoding='utf-8'
                 )
                 logging.info(f"  ✓ Loaded {len(df_basics):,} rows")
-            except Exception as e:
-                logging.error(f"  ✗ Error: {e}")
-                raise Exception("Failed to read title.basics")
 
-            df_crew = self.read_tsv('title.crew.tsv.gz', nrows)
-            df_principals = self.read_tsv('title.principals.tsv.gz', nrows)
-            
+                df_crew = self.read_tsv('title.crew.tsv.gz', nrows)
+                df_principals = self.read_tsv('title.principals.tsv.gz', nrows)
+                df_ratings = None  # read later inside Fact loader
+
+            logging.info(f"  ✓ Preloaded shared datasets: basics={len(df_basics):,}")
+
+            # ========================================
+            # PHASE 2: Core Dimensions
+            # ========================================
             logging.info(f"\n{'='*60}\nPHASE 2: Core Dimensions\n{'='*60}")
             self.timed("1/8 Dim_Time", self.load_dim_time)
             self.timed("2/8 Dim_Genre", self.load_dim_genre, df_basics)
             self.timed("3/8 Dim_Person", self.load_dim_person, nrows, df_crew, df_principals)
             self.timed("4/8 Dim_Title", self.load_dim_title, df_basics)
-            
+
+            # ========================================
+            # PHASE 3: Bridge Tables & Dependent Dimensions
+            # ========================================
             logging.info(f"\n{'='*60}\nPHASE 3: Bridge Tables & Dependent Dimensions\n{'='*60}")
             self.timed("5/8 Bridge_Title_Genre", self.load_bridge_title_genre, df_basics)
             self.timed("6/8 Dim_Episode", self.load_dim_episode, nrows)
             self.timed("7/8 Bridge_Title_Person", self.load_bridge_title_person, nrows, df_crew, df_principals)
-            
+
+            # ========================================
+            # PHASE 4: Fact Table
+            # ========================================
             logging.info(f"\n{'='*60}\nPHASE 4: Fact Table\n{'='*60}")
             self.timed("8/8 Fact_Title_Performance", self.load_fact_title_performance, df_basics, nrows)
-            
+
             self.print_summary()
 
             logging.info("\n" + "=" * 60)
@@ -480,6 +526,7 @@ class IMDBDataLoader:
         finally:
             self.enable_foreign_keys()
             self.close()
+
 
 if __name__ == "__main__":
     from config import DB_CONFIG, DATA_PATH
