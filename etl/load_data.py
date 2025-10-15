@@ -103,11 +103,12 @@ class IMDBDataLoader:
     def bulk_insert(self, table, columns, data, batch_size=50000):
         # Convert structured array or Series to list of tuples if needed
         if hasattr(data, 'to_records'):
-            data = list(data)  
+            data = list(data)  # convert structured array to list of tuples
         elif isinstance(data, pd.Series):
             data = data.tolist()
 
-        if not data or len(data) == 0:
+        # Check length explicitly (safe for numpy arrays)
+        if len(data) == 0:
             logging.warning(f"  ⚠ No data to insert")
             return
 
