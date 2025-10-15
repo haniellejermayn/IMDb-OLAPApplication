@@ -28,12 +28,11 @@ CREATE TABLE Dim_Title (
     primaryTitle VARCHAR(500),
     originalTitle VARCHAR(500),
     titleType VARCHAR(50),
-    startYear INT,
     endYear INT,
     runtimeMinutes INT,
     INDEX idx_titleType (titleType),
-    INDEX idx_startYear (startYear),
-    INDEX idx_titleType_year (titleType, startYear),
+    INDEX idx_endYear (endYear),
+    INDEX idx_titleType_year (titleType, endYear),
     INDEX idx_runtime (runtimeMinutes),
     INDEX idx_primaryTitle (primaryTitle(100))
 );
