@@ -6,6 +6,7 @@ import sys
 import argparse
 import time
 from collections import defaultdict
+import numpy as np
 
 from pathlib import Path
 import os
@@ -100,17 +101,40 @@ class IMDBDataLoader:
             logging.error(f"  ✗ Error: {e}")
             return None
     
+    def convert_to_native_types(self, data):
+        """Convert numpy/pandas types to native Python types"""
+        converted = []
+        for row in data:
+            converted_row = []
+            for val in row:
+                # Handle pandas NA/NaT
+                if pd.isna(val):
+                    converted_row.append(None)
+                # Convert numpy integers
+                elif isinstance(val, (np.integer, np.int64, np.int32)):
+                    converted_row.append(int(val))
+                # Convert numpy floats
+                elif isinstance(val, (np.floating, np.float64, np.float32)):
+                    converted_row.append(float(val))
+                # Keep native Python types as-is
+                else:
+                    converted_row.append(val)
+            converted.append(tuple(converted_row))
+        return converted
+    
     def bulk_insert(self, table, columns, data, batch_size=50000):
         # Convert structured array or Series to list of tuples if needed
         if hasattr(data, 'to_records'):
-            data = list(data)  # convert structured array to list of tuples
+            data = [tuple(x) for x in data]
         elif isinstance(data, pd.Series):
             data = data.tolist()
 
-        # Check length explicitly (safe for numpy arrays)
         if len(data) == 0:
             logging.warning(f"  ⚠ No data to insert")
             return
+
+        # Convert to native Python types
+        data = self.convert_to_native_types(data)
 
         placeholders = ', '.join(['%s'] * len(columns))
         query = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})"
@@ -132,12 +156,12 @@ class IMDBDataLoader:
 
             self.conn.commit()
             self.stats[table]['inserted'] = inserted
-
             logging.info(f"\n  ✓ Inserted {inserted:,} rows ({time.time() - start:.2f}s)")
         except Error as e:
             logging.error(f"\n  ✗ Error: {e}")
             self.conn.rollback()
             self.stats[table]['errors'] += 1
+
     
     def timed(self, label, func, *args):
         logging.info(f"\n{'='*60}\n[{label}]\n{'='*60}")
@@ -257,14 +281,20 @@ class IMDBDataLoader:
             return
 
         df = df_basics[df_basics['tconst'].notna()].copy()
+        
+        # Convert Int64 to regular int/None BEFORE creating final DataFrame
+        df['endYear'] = df['endYear'].apply(lambda x: int(x) if pd.notna(x) else None)
+        df['runtimeMinutes'] = df['runtimeMinutes'].apply(lambda x: int(x) if pd.notna(x) else None)
+        
         df_final = pd.DataFrame({
             'tconst': df['tconst'],
             'primaryTitle': df['primaryTitle'].fillna('').str[:500],
             'originalTitle': df['originalTitle'].fillna('').str[:500],
             'titleType': df['titleType'],
-            'endYear': df['endYear'].astype('Int64'),
-            'runtimeMinutes': df['runtimeMinutes'].astype('Int64')
+            'endYear': df['endYear'],
+            'runtimeMinutes': df['runtimeMinutes']
         })
+        
         self.bulk_insert('Dim_Title', df_final.columns.tolist(), df_final.to_records(index=False))
 
     def load_bridge_title_genre(self, df_basics):
@@ -294,8 +324,10 @@ class IMDBDataLoader:
         df['parentTconst'] = df['parentTconst'].where(df['parentTconst'].isin(valid_titles), None)
         df_final = df[['tconst','parentTconst','seasonNumber','episodeNumber']].copy()
         df_final = df_final.rename(columns={'tconst':'episodeTconst'})
-        df_final['seasonNumber'] = df_final['seasonNumber'].astype('Int64')
-        df_final['episodeNumber'] = df_final['episodeNumber'].astype('Int64')
+        
+        # Convert to native int/None
+        df_final['seasonNumber'] = df_final['seasonNumber'].apply(lambda x: int(x) if pd.notna(x) else None)
+        df_final['episodeNumber'] = df_final['episodeNumber'].apply(lambda x: int(x) if pd.notna(x) else None)
 
         orphaned = df['parentTconst'].isna().sum()
         if orphaned > 0:
@@ -332,7 +364,7 @@ class IMDBDataLoader:
 
         # --- Process principals ---
         if df_principals is None:
-            df_principals = self.read_tsv('title.principals.tsv.gz', nrows, usecols=['tconst','nconst','category'])
+            df_principals = self.read_tsv('title.principals.tsv.gz', nrows)
 
         if df_principals is not None:
             df_principals = df_principals.dropna(subset=['tconst','nconst'])
@@ -358,7 +390,8 @@ class IMDBDataLoader:
             return
 
         df_basics_filtered = df_basics[['tconst', 'startYear']].dropna(subset=['tconst', 'startYear'])
-        df_basics_filtered['startYear'] = df_basics_filtered['startYear'].astype(int)
+        df_basics_filtered['startYear'] = df_basics_filtered['startYear'].apply(lambda x: int(x) if pd.notna(x) else None)
+        df_basics_filtered = df_basics_filtered.dropna(subset=['startYear'])
 
         # Merge ratings with startYear
         df_ratings = df_ratings.merge(df_basics_filtered, on='tconst', how='inner')
@@ -372,7 +405,7 @@ class IMDBDataLoader:
 
         df_final = df_final[['tconst','timeKey','startYear','averageRating','numVotes']].copy()
         df_final['averageRating'] = df_final['averageRating'].astype(float)
-        df_final['numVotes'] = df_final['numVotes'].astype('Int64')
+        df_final['numVotes'] = df_final['numVotes'].apply(lambda x: int(x) if pd.notna(x) else None)
 
         self.bulk_insert('Fact_Title_Performance', df_final.columns.tolist(), df_final.to_records(index=False))
 
