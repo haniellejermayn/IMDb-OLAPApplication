@@ -356,25 +356,26 @@ class IMDBDataLoader:
         if df_ratings is None:
             return
 
-        # Map tconst -> startYear using df_basics
         df_basics_filtered = df_basics[['tconst', 'startYear']].dropna(subset=['tconst', 'startYear'])
-        start_year_map = dict(df_basics_filtered.values)
+        df_basics_filtered['startYear'] = df_basics_filtered['startYear'].astype(int)
 
-        # Filter only titles present in start_year_map
-        df_ratings = df_ratings[df_ratings['tconst'].isin(start_year_map)].copy()
-        df_ratings['startYear'] = df_ratings['tconst'].map(start_year_map)
+        # Merge ratings with startYear
+        df_ratings = df_ratings.merge(df_basics_filtered, on='tconst', how='inner')
 
-        # Map startYear -> timeKey from Dim_Time
+        # timeKey mapping
         self.cursor.execute("SELECT year, timeKey FROM Dim_Time")
-        time_map = dict(self.cursor.fetchall())
-        df_ratings['timeKey'] = df_ratings['startYear'].map(time_map)
+        df_time_map = pd.DataFrame(self.cursor.fetchall(), columns=['startYear','timeKey'])
 
-        df_final = df_ratings[['tconst','timeKey','startYear','averageRating','numVotes']].copy()
+        # Merge to get timeKey
+        df_final = df_ratings.merge(df_time_map, on='startYear', how='left')
+
+        df_final = df_final[['tconst','timeKey','startYear','averageRating','numVotes']].copy()
         df_final['averageRating'] = df_final['averageRating'].astype(float)
         df_final['numVotes'] = df_final['numVotes'].astype('Int64')
 
         self.bulk_insert('Fact_Title_Performance', df_final.columns.tolist(), df_final.to_records(index=False))
-    
+
+
     # =====================================================
     # MAIN
     # =====================================================
