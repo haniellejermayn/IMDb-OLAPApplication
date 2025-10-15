@@ -101,32 +101,37 @@ class IMDBDataLoader:
             return None
     
     def bulk_insert(self, table, columns, data, batch_size=50000):
-        if not data:
+        # Convert structured array or Series to list of tuples if needed
+        if hasattr(data, 'to_records'):
+            data = list(data)  
+        elif isinstance(data, pd.Series):
+            data = data.tolist()
+
+        if not data or len(data) == 0:
             logging.warning(f"  ⚠ No data to insert")
             return
-        
+
         placeholders = ', '.join(['%s'] * len(columns))
         query = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})"
-        
+
         total = len(data)
         inserted = 0
         start = time.time()
-        
+
         try:
             for i in range(0, total, batch_size):
                 batch = data[i:i + batch_size]
                 self.cursor.executemany(query, batch)
                 inserted += self.cursor.rowcount
-                
+
                 if (i // batch_size) % 5 == 0 and i > 0:
                     self.conn.commit()
-                
+
                 print(f"  Progress: {i + len(batch):,}/{total:,}", end='\r')
-            
+
             self.conn.commit()
-            
             self.stats[table]['inserted'] = inserted
-            
+
             logging.info(f"\n  ✓ Inserted {inserted:,} rows ({time.time() - start:.2f}s)")
         except Error as e:
             logging.error(f"\n  ✗ Error: {e}")
