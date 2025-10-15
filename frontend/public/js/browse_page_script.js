@@ -1,5 +1,3 @@
-// browse_page.js
-
 document.addEventListener("DOMContentLoaded", () => {
     const filterButton = document.getElementById("filter_button");
     const peopleContainer = document.getElementById("people_included_container");
@@ -105,4 +103,82 @@ document.addEventListener("DOMContentLoaded", () => {
 
         console.log("All filters reset!");
     });
+
+    // === Show/hide sections based on selected report === // 
+    const reportRadios = document.querySelectorAll(".report_select");
+    const allFilterFields = document.querySelectorAll("#filter_row .filter_field, #filter_row .filter_field_dual .filter_field");
+    const allGroupFields = document.querySelectorAll(".agg_fields .field");
+
+    allFilterFields.forEach(f => f.style.display = "none");
+    allGroupFields.forEach(f => f.style.display = "none");
+
+    const reportConfig = {
+        R1: {
+            filters: ["#genre_fields", "#year_range_field", "#min_rating_field"],
+            groups: ["#genre_agg", "#time_agg"]
+        },
+        R2: {
+            filters: ["#season_number_field", "#min_votes_field"],
+            groups: ["#tv_content_agg", "#time_agg"]
+        },
+        R3: {
+            filters: ["#genre_fields", "#runtime_field", "#completion_status_field"],
+            groups: ["#genre_agg"]
+        },
+        R4: {
+            filters: ["#people_included_field", "#year_range_field"],
+            groups: ["#actor_agg", "#time_agg"]
+        },
+        R5: {
+            filters: ["#genre_fields", "#min_rating_field", "#title_type_field", "#year_range_field", "#min_votes_field", "#completion_status_field", "#series_name_field"],
+            groups: ["#genre_agg", "#tv_content_agg", "#time_agg"]
+        }
+    };
+
+    reportRadios.forEach(radio => {
+        radio.addEventListener("change", () => {
+            allFilterFields.forEach(f => f.style.display = "none");
+            allGroupFields.forEach(f => f.style.display = "none");
+
+            const config = reportConfig[radio.value];
+            if (!config) return;
+
+            config.filters.forEach(sel => {
+                const el = document.querySelector(sel);
+                if (el) el.style.display = "";
+            });
+
+            config.groups.forEach(sel => {
+                const el = document.querySelector(sel);
+                if (el) {
+                    el.style.display = "";
+                    const parent = el.closest(".agg_fields"); 
+                    if (parent) parent.style.display = ""; 
+                }
+            });
+        });
+    });
+
+    const tvContentSelect = document.querySelector("#tv_content_level");
+    const seasonNumberField = document.querySelector("#season_number_field");
+
+    tvContentSelect.addEventListener("change", () => {
+        const selectedReport = [...reportRadios].find(r => r.checked)?.value;
+
+        if (selectedReport === "R5") {
+            if (tvContentSelect.value === "Episode") {
+                seasonNumberField.style.display = "";
+            } else {
+                seasonNumberField.style.display = "none";
+            }
+        }
+    });
+
+    if (resetButton) {
+        resetButton.addEventListener("click", () => {
+            allFilterFields.forEach(f => f.style.display = "none");
+            allGroupFields.forEach(f => f.style.display = "none");
+            reportRadios.forEach(r => (r.checked = false));
+        });
+    }
 });
