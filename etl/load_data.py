@@ -450,10 +450,7 @@ class IMDBDataLoader:
                 logging.error(f"  ✗ Error: {e}")
                 raise Exception("Failed to read title.basics")
 
-            logging.info(f"  Reading title.crew.tsv.gz...")
             df_crew = self.read_tsv('title.crew.tsv.gz', nrows)
-            
-            logging.info(f"  Reading title.principals.tsv.gz...")
             df_principals = self.read_tsv('title.principals.tsv.gz', nrows)
             
             logging.info(f"\n{'='*60}\nPHASE 2: Core Dimensions\n{'='*60}")
