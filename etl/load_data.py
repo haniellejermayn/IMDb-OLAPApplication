@@ -427,8 +427,7 @@ class IMDBDataLoader:
             self.timed("5/8 Bridge_Title_Genre", self.load_bridge_title_genre, df_basics)
             self.timed("6/8 Dim_Episode", self.load_dim_episode, nrows)
             self.timed("7/8 Bridge_Title_Person", self.load_bridge_title_person, nrows, df_crew, df_principals)
-            self.timed("8/8 Fact_Title_Performance", self.load_fact_title_performance, nrows)
-
+            self.timed("8/8 Fact_Title_Performance", self.load_fact_title_performance, df_basics, nrows)
             
             self.print_summary()
 
