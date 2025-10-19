@@ -125,6 +125,21 @@
                                              </div>
                                         </div>
 
+                                        <div class="filter_field" id="rating_range_field">
+                                             <div class="filter_header">
+                                                  <span>Rating Range</span>
+                                             </div>
+                                             <div id="runtime_content">
+                                                  <div class="filter_input runtime_minutes" id="min_rating">
+                                                       <input type="number" id="min_rating_val" min="0" max="10" step="0.1" placeholder="e.g. 5">
+                                                  </div>
+                                                  <span> to </span>
+                                                  <div class="filter_input runtime_minutes" id="max_rating">
+                                                       <input type="number" id="max_rating_val" min="0" max="10" step="0.1" placeholder="e.g. 5">
+                                                  </div>
+                                             </div>
+                                        </div>
+
                                         <div class="filter_field" id="people_included_field">
                                              <div class="filter_header">
                                                   <span>People Included</span>
@@ -166,6 +181,7 @@
                                              </div>
 
                                              <select id="title_type" name="title_type">
+                                                  <option value="">Select</option>
                                                   <option value="tvSeries">TV Series</option>
                                                   <option value="tvMiniseries">TV Mini Series</option>
                                              </select>
@@ -195,7 +211,7 @@
                                              <div class="field" id="time_agg">
                                                   <label for="time">Time:</label>
                                                   <select id="time" name="time">
-                                                       <option value="None">Select</option>
+                                                       <option value="">Select</option>
                                                        <option value="Year">Year</option>
                                                        <option value="Era">Era</option>
                                                        <option value="Decade">Decade</option>
@@ -205,7 +221,7 @@
                                              <div class="field" id="tv_content_agg">
                                                   <label for="tv_content_level">TV Content Level:</label>
                                                   <select id="tv_content_level" name="tv_content_level">
-                                                       <option value="None">Select</option>
+                                                       <option value="">Select</option>
                                                        <option value="Episode">Episode</option>
                                                        <option value="Season">Season</option>
                                                        <option value="Series">Series</option>
@@ -223,7 +239,7 @@
                                              <span>Select which report to generate:</span>
                                         </div>
 
-                                        <div id="field_container">
+                                        <div id="report_container">
                                              <div class="field">
                                                   <input type="radio" class="report_select" id="R1" name="report" value="R1">
                                                   <label for="year">R1</label>
@@ -242,7 +258,11 @@
                                              </div>
                                              <div class="field">
                                                   <input type="radio" class="report_select" id="R5" name="report" value="R5">
-                                                  <label for="actor">TV Series Engagement Analysis</label>
+                                                  <label for="R5">TV Series Engagement Analysis</label>
+                                             </div>
+                                             <div class="field">
+                                                  <input type="radio" class="report_select" id="R6" name="report" value="R6">
+                                                  <label for="R6">Runtime Trend</label>
                                              </div>
                                         </div>
                                    </div>

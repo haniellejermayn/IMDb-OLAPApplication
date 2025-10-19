@@ -355,6 +355,12 @@ h1 {
     background: linear-gradient(45deg, var(--card-bg-color-dark), var(--card-bg-color-mid));
 }
 
+#report_container {
+    display: flex;
+    gap: 5px;
+    flex-direction: column;
+}
+
 /* ------- INPUT SPECIFIC ------- */
 input[type="checkbox"] {
     appearance: none;
