@@ -259,10 +259,12 @@ def genre_rating_association():
             return jsonify({
                 "status": "success", 
                 "data": data,
-                "chi_square_analysis": chi_results
+                "chi_square_analysis": chi_results,
+                "query": query,
+                "params": params_list
             })
         
-        return jsonify({"status": "success", "data": data})
+        return jsonify({"status": "success", "data": data, "query": query, "params": params_list})
     except Exception as e:
         logger.error(f"Error in genre_rating_association: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
@@ -431,7 +433,7 @@ def runtime_trends():
         query += " LIMIT 1000"
         
         data = execute_query(query, tuple(params_list))
-        return jsonify({"status": "success", "data": data})
+        return jsonify({"status": "success", "data": data, "query": query, "params": params_list})
     except Exception as e:
         logger.error(f"Error in runtime_trends: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
@@ -574,7 +576,7 @@ def person_performance():
         print(query)
         
         data = execute_query(query, tuple(params_list))
-        return jsonify({"status": "success", "data": data})
+        return jsonify({"status": "success", "data": data, "query": query, "params": params_list})
     except Exception as e:
         logger.error(f"Error in person_performance: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
@@ -684,7 +686,7 @@ def genre_engagement():
             query += " ORDER BY total_votes DESC LIMIT 10"
         
         data = execute_query(query, tuple(params_list))
-        return jsonify({"status": "success", "data": data})
+        return jsonify({"status": "success", "data": data, "query": query, "params": params_list})
     except Exception as e:
         logger.error(f"Error in genre_engagement: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
@@ -954,7 +956,7 @@ def tv_engagement():
             query += " ORDER BY total_votes DESC LIMIT 10"
         
         data = execute_query(query, tuple(params_list))
-        return jsonify({"status": "success", "data": data})
+        return jsonify({"status": "success", "data": data, "query": query, "params": params_list})
     except Exception as e:
         logger.error(f"Error in tv_engagement: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400

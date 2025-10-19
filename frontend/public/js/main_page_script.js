@@ -267,28 +267,39 @@ async function fetchData(endpoint, payload, reportType) {
           console.log(`Sending request to ${endpoint}:`, payload);
 
           const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify(payload)
           });
 
           const result = await response.json();
           console.log('Response:', result);
 
           if (result.status === 'success' && result.data) {
-          showStatus(`✓ Successfully fetched ${result.data.length} rows`, false);
-          renderChart(result.data, reportType);
-          renderTable(result.data);
-          
-          // Display chi-square results if present (R1 report)
-          if (result.chi_square_analysis) {
-               displayChiSquareResults(result.chi_square_analysis);
-          } else {
-               // Hide chi-square section if not present
-               document.getElementById('chiSquareResults').classList.add('hidden');
-          }
-          } else {
-          showStatus('Error: ' + (result.message || 'Unknown error'), true);
+               showStatus(`✓ Successfully fetched ${result.data.length} rows`, false);
+
+               // Render charts and table
+               renderChart(result.data, reportType);
+               renderTable(result.data);
+
+               // Show query and parameter generated
+               document.getElementById("queryBox").innerHTML = 
+                    `SQL Query Generated:<pre><code>${result.query || "No query returned"}</code></pre>`;
+
+               document.getElementById("paramsBox").innerHTML = 
+                    `Parameters:<pre><code>${JSON.stringify(result.params || [], null, 2)}</code></pre>`;
+
+               
+               // Display chi-square results if present (R1 report)
+               if (result.chi_square_analysis) {
+                    displayChiSquareResults(result.chi_square_analysis);
+               } else {
+                    // Hide chi-square section if not present
+                    document.getElementById('chiSquareResults').classList.add('hidden');
+               }
+          } 
+          else {
+               showStatus('Error: ' + (result.message || 'Unknown error'), true);
           }
      } catch (error) {
           console.error('Fetch error:', error);
@@ -693,7 +704,7 @@ function renderChart(results, reportType) {
      console.log(`R${reportType.slice(1)} - hasGenre: ${hasGenre}, hasTimePeriod: ${hasTimePeriod}, hasTitleType: ${hasTitleType}`);
      
      // Use table view if optional grouping is present
-     if (reportType === 'R2' && hasGenre) {
+     /*if (reportType === 'R2' && hasGenre) {
           renderGroupedTable(chartContainer, results, reportType, 'genreName');
           return;
      }
@@ -716,7 +727,7 @@ function renderChart(results, reportType) {
      if (reportType === 'R5' && hasTimePeriod) {
           renderGroupedTable(chartContainer, results, reportType, 'time_period');
           return;
-     }
+     }*/
      
      // Otherwise render chart as normal
      chartContainer.innerHTML = '<canvas id="resultsChart"></canvas>';

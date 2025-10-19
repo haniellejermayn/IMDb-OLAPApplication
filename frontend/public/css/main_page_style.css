@@ -199,3 +199,29 @@ button:active {
     padding-right: 12px;
     padding-left: 4px;
 }
+#queryBox {
+    width: 100%;
+    height: auto;
+    display: block;
+    color: var(--card-bg-color-dark);
+    background: #f2f2f2;
+    padding: 10px;
+    margin-top: 20px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    border-radius: 6px;
+}
+#paramsBox {
+    width: 100%;
+    height: auto;
+    display: block;
+    color: var(--card-bg-color-dark);
+    background: #f9f9f9;
+    padding: 10px;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    border-radius: 6px;
+}
