@@ -34,7 +34,8 @@ CREATE TABLE Dim_Title (
     INDEX idx_endYear (endYear),
     INDEX idx_titleType_year (titleType, endYear),
     INDEX idx_runtime (runtimeMinutes),
-    INDEX idx_primaryTitle (primaryTitle(100))
+    INDEX idx_primaryTitle (primaryTitle(100)),
+    INDEX idx_title_type_runtime (titleType, runtimeMinutes)
 );
 
 -- Dimension: Genre
@@ -95,7 +96,8 @@ CREATE TABLE Bridge_Title_Person (
     INDEX idx_person (nconst),
     INDEX idx_category (category),
     INDEX idx_person_category (nconst, category),
-    INDEX idx_category_person (category, nconst)
+    INDEX idx_category_person (category, nconst),
+    INDEX idx_person_category_optimized (category, nconst)
 );
 
 -- ============================================================
@@ -128,7 +130,8 @@ CREATE TABLE Fact_Title_Performance (
     INDEX idx_votes_rating (numVotes, averageRating),
     
     -- Combined filtering patterns
-    INDEX idx_time_rating_votes (timeKey, averageRating, numVotes)
+    INDEX idx_time_rating_votes (timeKey, averageRating, numVotes),
+    INDEX idx_fact_agg_optimized (averageRating, numVotes, timeKey)
 );
 
 -- ============================================================
@@ -142,21 +145,30 @@ Report 1 (Genre-Rating Association):
 
 Report 2 (Runtime Trends):
 - Dim_Title: idx_titleType_year, idx_runtime for title type + time + runtime
+- Dim_Title: idx_title_type_runtime (composite) for optimized runtime trend queries
 - Fact_Title_Performance: idx_time, idx_rating for time grouping + rating filters
 - Bridge_Title_Genre: idx_genre for optional genre grouping
 
 Report 3 (Person Performance):
 - Bridge_Title_Person: idx_category_person for job category filtering
+- Bridge_Title_Person: idx_person_category_optimized (composite) for optimized person lookups
 - Fact_Title_Performance: idx_rating_votes for performance metrics
 - Bridge_Title_Genre: idx_genre for optional genre grouping
 
 Report 4 (Genre Engagement):
 - Bridge_Title_Genre: idx_genre_title for genre grouping
 - Fact_Title_Performance: idx_votes_rating for vote aggregation + filters
+- Fact_Title_Performance: idx_fact_agg_optimized (composite) for optimized aggregations
 - Dim_Time: idx_decade, idx_era for time grouping
 
 Report 5 (TV Series Engagement):
 - Dim_Episode: idx_parent, idx_season for hierarchy navigation
 - Fact_Title_Performance: idx_votes for engagement metrics
 - Bridge_Title_Genre: idx_genre for genre filtering
+
+OPTIMIZATION INDEXES:
+Three composite indexes added to improve query performance:
+1. Dim_Title.idx_title_type_runtime: Targets (titleType, runtimeMinutes) for runtime trend queries
+2. Bridge_Title_Person.idx_person_category_optimized: Targets (category, nconst) for person performance lookups
+3. Fact_Title_Performance.idx_fact_agg_optimized: Targets (averageRating, numVotes, timeKey) for genre engagement aggregations
 */
