@@ -646,8 +646,32 @@ def person_performance():
         if having_parts:
             query += " HAVING " + " AND ".join(having_parts)
         
-        if group_by_genre or group_by_time:
-            query += " ORDER BY avg_rating DESC LIMIT 200"
+        # Partition fields for window function
+        partition_by_fields = []
+        if group_by_genre:
+            partition_by_fields.append("dg.genreName")
+        if group_by_time:
+            partition_by_fields.append("time_period")
+
+        # Apply window function if grouping
+        if partition_by_fields:
+            partition_aliases = []
+            if group_by_genre:
+                partition_aliases.append("genreName")
+            if group_by_time:
+                partition_aliases.append("time_period")
+            
+            partition_clause = ", ".join(partition_aliases)
+            
+            query = f"""
+            SELECT * FROM (
+                SELECT *,
+                    ROW_NUMBER() OVER (PARTITION BY {partition_clause} ORDER BY avg_rating DESC) AS rn
+                FROM ({query}) AS subquery
+            ) AS ranked
+            WHERE rn <= 10
+            ORDER BY {partition_clause}, avg_rating DESC
+            """
         else:
             query += " ORDER BY avg_rating DESC LIMIT 10"
         
@@ -757,7 +781,15 @@ def genre_engagement():
         
         # ORDER BY - use aliased columns
         if include_time:
-            query += " ORDER BY time_period DESC, total_votes DESC LIMIT 200"
+            query = f"""
+            SELECT * FROM (
+                SELECT *,
+                    ROW_NUMBER() OVER (PARTITION BY time_period ORDER BY total_votes DESC) AS rn
+                FROM ({query}) AS subquery
+            ) AS ranked
+            WHERE rn <= 10
+            ORDER BY time_period DESC, total_votes DESC
+            """
         else:
             query += " ORDER BY total_votes DESC LIMIT 10"
         
@@ -993,6 +1025,13 @@ def tv_engagement():
         where_clause = build_where_clause(params.get('where'), params_list, table_aliases)
         query += where_clause
         
+        # Determine partition fields EARLY (before GROUP BY)
+        partition_by_fields = []
+        if group_by_genre:
+            partition_by_fields.append("dg.genreName")
+        if group_by_time:
+            partition_by_fields.append("time_period")
+        
         # Dynamic GROUP BY
         if tv_level in ['series', 'season']:
             if group_by_genre:
@@ -1004,7 +1043,6 @@ def tv_engagement():
             if params.get('group_by'):
                 custom_groups = []
                 for field in params.get('group_by'):
-                    # Replace dtm.decade/year/era with time_period alias if present
                     if field in [f'dtm.{time_granularity}', 'dtm.decade', 'dtm.year', 'dtm.era']:
                         custom_groups.append('time_period')
                     else:
@@ -1018,7 +1056,6 @@ def tv_engagement():
             # Episode level with custom grouping
             custom_groups = []
             for field in params.get('group_by'):
-                # Replace dtm.decade/year/era with time_period alias if present
                 if field in [f'dtm.{time_granularity}', 'dtm.decade', 'dtm.year', 'dtm.era']:
                     custom_groups.append('time_period')
                 else:
@@ -1026,8 +1063,20 @@ def tv_engagement():
             group_by_clause = build_group_by_clause(custom_groups, None)
             query += group_by_clause
         
-        if group_by_genre or group_by_time:
-            query += " ORDER BY total_votes DESC LIMIT 200"
+        # Window function for top 10 per group
+        if partition_by_fields:
+            partition_clause = ", ".join(partition_by_fields)
+            
+            # Wrap query with window function to get top 10 per group
+            query = f"""
+            SELECT * FROM (
+                SELECT *,
+                    ROW_NUMBER() OVER (PARTITION BY {partition_clause} ORDER BY total_votes DESC) AS rn
+                FROM ({query}) AS subquery
+            ) AS ranked
+            WHERE rn <= 10
+            ORDER BY {partition_clause}, total_votes DESC
+            """
         else:
             query += " ORDER BY total_votes DESC LIMIT 10"
         

@@ -981,6 +981,9 @@
                     }
                 }
             }
+
+            // Remove 'rn' column if it exists
+            columns = columns.filter(col => col !== 'rn');
             
             const columnLabels = {
                 'time_period': 'Time Period',
@@ -1107,7 +1110,7 @@
                 return;
             }
             if (reportType === 'R4' && hasTimePeriod) {
-                renderGroupedTable(chartContainer, results, reportType, 'time_period');
+                renderGroupedTable(chartContainer, results, reportType, 'genreName');
                 return;
             }
             if (reportType === 'R5' && hasGenre) {
