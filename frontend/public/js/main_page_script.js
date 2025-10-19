@@ -93,15 +93,6 @@ async function fetchR2Data() {
           return;
      }
 
-     // Get the additional group by value
-     const groupBy = document.getElementById('r2_group_by').value;
-     if (groupBy === 'genre') {
-          payload.group_by_genre = true;
-     } else if (groupBy === 'titleType') {
-          // Send custom group_by for title type
-          payload.group_by = ['dtm.' + payload.time_granularity, 'dtl.titleType'];
-     }
-
      const genres = parseArray(document.getElementById('r2_genres').value);
      if (genres) payload.genres = genres;
      
@@ -704,11 +695,7 @@ function renderChart(results, reportType) {
      console.log(`R${reportType.slice(1)} - hasGenre: ${hasGenre}, hasTimePeriod: ${hasTimePeriod}, hasTitleType: ${hasTitleType}`);
      
      // Use table view if optional grouping is present
-     /*if (reportType === 'R2' && hasGenre) {
-          renderGroupedTable(chartContainer, results, reportType, 'genreName');
-          return;
-     }
-     if (reportType === 'R3' && hasGenre) {
+     /*if (reportType === 'R3' && hasGenre) {
           renderGroupedTable(chartContainer, results, reportType, 'genreName');
           return;
      }
@@ -757,58 +744,60 @@ function renderChart(results, reportType) {
 // R1: Genre-Rating Association Chart
 function renderR1Chart(ctx, results) {
      const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
-     const ratingBins = ['Low', 'Mid', 'High'];
+     const ratingBins = ['Very Low', 'Low', 'Mid', 'High', 'Very High'];
      
      const datasets = ratingBins.map(bin => {
           const data = timePeriods.map(period => {
-          const entry = results.find(r => r.time_period === period && r.rating_bin === bin);
-          return entry ? entry.count : 0;
+               const entry = results.find(r => r.time_period === period && r.rating_bin === bin);
+               return entry ? entry.count : 0;
           });
           const colors = {
-          'Low': 'rgba(255, 99, 132, 0.7)',
-          'Mid': 'rgba(255, 206, 86, 0.7)',
-          'High': 'rgba(75, 192, 192, 0.7)'
+               'Very Low': 'rgba(255, 99, 132, 0.7)',
+               'Low': 'rgba(255, 206, 86, 0.7)',
+               'Mid': 'rgba(75, 192, 192, 0.7)',
+               'High': 'rgba(153, 102, 255, 0.7)',
+               'Very High': 'rgba(255, 159, 64, 0.7)'
           };
           return {
-          label: `${bin} Rating`,
-          data: data,
-          backgroundColor: colors[bin],
-          borderColor: colors[bin].replace('0.7', '1'),
-          borderWidth: 1
+               label: `${bin} Rating`,
+               data: data,
+               backgroundColor: colors[bin],
+               borderColor: colors[bin].replace('0.7', '1'),
+               borderWidth: 1
           };
      });
 
      currentChart = new Chart(ctx, {
           type: 'bar',
           data: {
-          labels: timePeriods,
-          datasets: datasets
+               labels: timePeriods,
+               datasets: datasets
           },
           options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-               title: {
-                    display: true,
-                    text: 'Genre-Rating Distribution Over Time',
-                    font: { size: 16 }
+               responsive: true,
+               maintainAspectRatio: false,
+               plugins: {
+                    title: {
+                         display: true,
+                         text: 'Genre-Rating Distribution Over Time',
+                         font: { size: 16 }
+                    },
+                    legend: {
+                         display: true,
+                         position: 'top'
+                    }
                },
-               legend: {
-                    display: true,
-                    position: 'top'
+               scales: {
+                    x: {
+                         stacked: true,
+                         title: { display: true, text: 'Time Period' }
+                    },
+                    y: {
+                         stacked: true,
+                         title: { display: true, text: 'Count' },
+                         beginAtZero: true
+                    }
                }
-          },
-          scales: {
-               x: {
-                    stacked: true,
-                    title: { display: true, text: 'Time Period' }
-               },
-               y: {
-                    stacked: true,
-                    title: { display: true, text: 'Count' },
-                    beginAtZero: true
-               }
-          }
           }
      });
 }
@@ -943,7 +932,7 @@ function renderR3Chart(ctx, results) {
 
 // R4: Genre Engagement Chart
 function renderR4Chart(ctx, results) {
-     const hasTimePeriod = results[0].hasOwnProperty('time_period');
+     const hasTimePeriod = results[0]?.time_period !== undefined;
      
      if (hasTimePeriod) {
           const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
