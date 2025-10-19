@@ -206,10 +206,10 @@ document.addEventListener("DOMContentLoaded", () => {
             alert(`Data received from ${endpoint}! Check console for details.`);
 
             // Render Chart
-            // renderChart(data.results);
+            renderChart(data.data, payload.report);
 
             // Render Table
-            renderTable(data.results)
+            renderTable(data.data)
 
             // Set Query and Param
             document.getElementById("queryBox").textContent = data.query || "No query returned";
@@ -381,3 +381,441 @@ document.addEventListener("DOMContentLoaded", function() {
         viewTableLink.style.fontWeight = "normal";
     });
 });
+
+
+// Global chart instance to destroy before creating new ones
+let currentChart = null;
+
+function renderChart(results, reportType) {
+    console.log("Rendering chart for report:", reportType, results);
+
+    if (!results || results.length === 0) {
+        console.warn("⚠️ No results to display in chart.");
+        document.getElementById('chartContainer').innerHTML = '<p>No data available to display.</p>';
+        return;
+    }
+
+    // Destroy existing chart
+    if (currentChart) {
+        currentChart.destroy();
+        currentChart = null;
+    }
+
+    // Clear container
+    const chartContainer = document.getElementById('chartContainer');
+    chartContainer.innerHTML = '<canvas id="resultsChart"></canvas>';
+
+    const ctx = document.getElementById('resultsChart').getContext('2d');
+
+    // Route to appropriate chart renderer
+    switch(reportType) {
+        case 'R1':
+            renderR1Chart(ctx, results);
+            break;
+        case 'R2':
+            renderR2Chart(ctx, results);
+            break;
+        case 'R3':
+            renderR3Chart(ctx, results);
+            break;
+        case 'R4':
+            renderR4Chart(ctx, results);
+            break;
+        case 'R5':
+            renderR5Chart(ctx, results);
+            break;
+        default:
+            console.error("Unknown report type:", reportType);
+    }
+}
+
+// ============================================================
+// Report 1: Genre-Rating Association (Stacked Bar Chart)
+// ============================================================
+function renderR1Chart(ctx, results) {
+    // Group data by time_period and rating_bin
+    const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
+    const ratingBins = ['Low', 'Mid', 'High'];
+    
+    // Prepare datasets for each rating bin
+    const datasets = ratingBins.map(bin => {
+        const data = timePeriods.map(period => {
+            const entry = results.find(r => r.time_period === period && r.rating_bin === bin);
+            return entry ? entry.count : 0;
+        });
+
+        const colors = {
+            'Low': 'rgba(255, 99, 132, 0.7)',
+            'Mid': 'rgba(255, 206, 86, 0.7)',
+            'High': 'rgba(75, 192, 192, 0.7)'
+        };
+
+        return {
+            label: `${bin} Rating`,
+            data: data,
+            backgroundColor: colors[bin],
+            borderColor: colors[bin].replace('0.7', '1'),
+            borderWidth: 1
+        };
+    });
+
+    currentChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: timePeriods,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Genre-Rating Distribution Over Time',
+                    font: { size: 16 }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    title: { display: true, text: 'Time Period' }
+                },
+                y: {
+                    stacked: true,
+                    title: { display: true, text: 'Count' },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// ============================================================
+// Report 2: Runtime Trends (Line Chart)
+// ============================================================
+function renderR2Chart(ctx, results) {
+    // Group by time_period and titleType
+    const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
+    const titleTypes = [...new Set(results.map(r => r.titleType))];
+    
+    const colorPalette = [
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(255, 99, 132, 0.7)',
+        'rgba(75, 192, 192, 0.7)',
+        'rgba(153, 102, 255, 0.7)',
+        'rgba(255, 159, 64, 0.7)'
+    ];
+
+    const datasets = titleTypes.map((type, index) => {
+        const data = timePeriods.map(period => {
+            const entry = results.find(r => r.time_period === period && r.titleType === type);
+            return entry ? parseFloat(entry.avg_runtime) : null;
+        });
+
+        return {
+            label: type,
+            data: data,
+            borderColor: colorPalette[index % colorPalette.length],
+            backgroundColor: colorPalette[index % colorPalette.length].replace('0.7', '0.2'),
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4
+        };
+    });
+
+    currentChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timePeriods,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Average Runtime Trends Over Time',
+                    font: { size: 16 }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Time Period' }
+                },
+                y: {
+                    title: { display: true, text: 'Average Runtime (minutes)' },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// ============================================================
+// Report 3: Person Performance (Horizontal Bar Chart - Top 20)
+// ============================================================
+function renderR3Chart(ctx, results) {
+    // Sort by avg_rating descending and take top 20
+    const topResults = results
+        .sort((a, b) => parseFloat(b.avg_rating) - parseFloat(a.avg_rating))
+        .slice(0, 20);
+
+    const labels = topResults.map(r => r.primaryName || r.nconst);
+    const ratings = topResults.map(r => parseFloat(r.avg_rating));
+    const titleCounts = topResults.map(r => parseInt(r.total_titles));
+
+    currentChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Average Rating',
+                    data: ratings,
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Total Titles',
+                    data: titleCounts,
+                    backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Top 20 Person Performance by Average Rating',
+                    font: { size: 16 }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Value' }
+                },
+                y: {
+                    position: 'left',
+                    title: { display: true, text: 'Average Rating' }
+                },
+                y1: {
+                    position: 'right',
+                    title: { display: true, text: 'Total Titles' },
+                    grid: { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}
+
+// ============================================================
+// Report 4: Genre Engagement (Bar Chart)
+// ============================================================
+function renderR4Chart(ctx, results) {
+    // Check if time_period exists (optional grouping)
+    const hasTimePeriod = results[0].hasOwnProperty('time_period');
+
+    if (hasTimePeriod) {
+        // Grouped bar chart by time period
+        const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
+        const genres = [...new Set(results.map(r => r.genreName))];
+        
+        const colorPalette = [
+            'rgba(255, 99, 132, 0.7)',
+            'rgba(54, 162, 235, 0.7)',
+            'rgba(255, 206, 86, 0.7)',
+            'rgba(75, 192, 192, 0.7)',
+            'rgba(153, 102, 255, 0.7)'
+        ];
+
+        const datasets = genres.slice(0, 10).map((genre, index) => {
+            const data = timePeriods.map(period => {
+                const entry = results.find(r => r.time_period === period && r.genreName === genre);
+                return entry ? parseInt(entry.total_votes) : 0;
+            });
+
+            return {
+                label: genre,
+                data: data,
+                backgroundColor: colorPalette[index % colorPalette.length],
+                borderColor: colorPalette[index % colorPalette.length].replace('0.7', '1'),
+                borderWidth: 1
+            };
+        });
+
+        currentChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: timePeriods,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Genre Engagement by Time Period',
+                        font: { size: 16 }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Time Period' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Total Votes' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    } else {
+        // Simple bar chart by genre (no time grouping)
+        const sortedResults = results
+            .sort((a, b) => parseInt(b.total_votes) - parseInt(a.total_votes))
+            .slice(0, 15);
+
+        const labels = sortedResults.map(r => r.genreName);
+        const votes = sortedResults.map(r => parseInt(r.total_votes));
+
+        currentChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Total Votes',
+                    data: votes,
+                    backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Top 15 Genres by Total Engagement',
+                        font: { size: 16 }
+                    },
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Genre' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Total Votes' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+}
+
+// ============================================================
+// Report 5: TV Series Engagement (Bar Chart)
+// ============================================================
+function renderR5Chart(ctx, results) {
+    // Sort by total_votes descending and take top 20
+    const topResults = results
+        .sort((a, b) => parseInt(b.total_votes) - parseInt(a.total_votes))
+        .slice(0, 20);
+
+    // Determine label based on tv_level
+    let labels;
+    if (topResults[0].hasOwnProperty('episode_title')) {
+        labels = topResults.map(r => r.episode_title);
+    } else if (topResults[0].hasOwnProperty('seasonNumber')) {
+        labels = topResults.map(r => `${r.series_title} S${r.seasonNumber}`);
+    } else {
+        labels = topResults.map(r => r.series_title);
+    }
+
+    const votes = topResults.map(r => parseInt(r.total_votes));
+    const ratings = topResults.map(r => parseFloat(r.avg_rating));
+
+    currentChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Total Votes',
+                    data: votes,
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Average Rating',
+                    data: ratings,
+                    backgroundColor: 'rgba(255, 206, 86, 0.7)',
+                    borderColor: 'rgba(255, 206, 86, 1)',
+                    borderWidth: 1,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Top 20 TV Content by Engagement',
+                    font: { size: 16 }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Value' }
+                },
+                y: {
+                    position: 'left',
+                    title: { display: true, text: 'Total Votes' }
+                },
+                y1: {
+                    position: 'right',
+                    title: { display: true, text: 'Average Rating' },
+                    max: 10,
+                    grid: { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}

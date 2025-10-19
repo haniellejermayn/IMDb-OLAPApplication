@@ -478,3 +478,14 @@ input[type="number"] {
     padding: 2px;
     width: 100%;
 }
+
+/* ------- CHART SPECIFIC ------- */
+#chartContainer {
+    position: relative;
+    height: 500px;
+    padding: 20px;
+}
+
+#chartContainer canvas {
+    max-height: 100%;
+}

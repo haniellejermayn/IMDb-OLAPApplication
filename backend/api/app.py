@@ -57,5 +57,9 @@ def base_page():
 def browse():
     return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'browse_page.html')
 
+@app.route('/chart_test.html')
+def chart_test():
+    return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'chart_test.html')
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
