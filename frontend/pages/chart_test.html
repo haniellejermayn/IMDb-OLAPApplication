@@ -952,6 +952,38 @@
                 groupedData[groupKey].push(row);
             });
             
+            // Sort grouped data keys by time period if applicable
+            let sortedGroupKeys = Object.keys(groupedData);
+            
+            if (groupByField === 'time_period') {
+                sortedGroupKeys = sortedGroupKeys.sort((a, b) => {
+                    // Define era order
+                    const eraOrder = {
+                        'Silent Movie Era (Pre-1930s)': 1,
+                        'The Golden Age of Hollywood (1930-1969)': 2,
+                        'Blockbusters (1970-1989)': 3,
+                        'Digital Revolution (1990-2009)': 4,
+                        'Streaming (2010-Present)': 5
+                    };
+                    
+                    // If both are eras, use era order
+                    if (eraOrder[a] && eraOrder[b]) {
+                        return eraOrder[a] - eraOrder[b];
+                    }
+                    
+                    // Try to parse as numbers (for years/decades)
+                    const aNum = parseInt(a);
+                    const bNum = parseInt(b);
+                    
+                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                        return bNum - aNum; // Descending for numeric periods
+                    }
+                    
+                    // Fallback to alphabetical
+                    return a.localeCompare(b);
+                });
+            }
+            
             // Determine column headers based on report type
             let columns = [];
             if (reportType === 'R2') {
@@ -959,7 +991,7 @@
             } else if (reportType === 'R3') {
                 columns = ['primaryName', 'avg_rating', 'total_titles'];
             } else if (reportType === 'R4') {
-                columns = ['time_period', 'total_votes', 'title_count', 'avg_votes_per_title', 'avg_rating'];
+                columns = ['genreName', 'total_votes', 'title_count', 'avg_votes_per_title', 'avg_rating'];
             } else if (reportType === 'R5') {
                 // Check what level of data we have
                 const hasEpisodeNumber = results[0]?.episodeNumber !== undefined;
@@ -987,6 +1019,7 @@
             
             const columnLabels = {
                 'time_period': 'Time Period',
+                'genreName': 'Genre',
                 'titleType': 'Title Type',
                 'avg_runtime': 'Avg Runtime (min)',
                 'title_count': 'Title Count',
@@ -1003,10 +1036,11 @@
             };
             
             let html = '<div style="display: grid; gap: 30px;">';
-            let totalGroups = Object.keys(groupedData).length;
+            let totalGroups = sortedGroupKeys.length;
             let groupCount = 0;
             
-            Object.entries(groupedData).forEach(([groupName, data]) => {
+            sortedGroupKeys.forEach((groupName) => {
+                const data = groupedData[groupName];
                 groupCount++;
                 // Limit to top 10 per group and sort by most relevant metric
                 let topData = data.slice(0, 10);
@@ -1110,7 +1144,7 @@
                 return;
             }
             if (reportType === 'R4' && hasTimePeriod) {
-                renderGroupedTable(chartContainer, results, reportType, 'genreName');
+                renderGroupedTable(chartContainer, results, reportType, 'time_period');
                 return;
             }
             if (reportType === 'R5' && hasGenre) {

@@ -707,32 +707,14 @@ def genre_engagement():
     try:
         params = request.get_json()
         
-        # Determine time field based on custom group_by or time_granularity param
         time_granularity = params.get('time_granularity')
         include_time = time_granularity is not None
         
-        # Validate time_granularity if provided
         if time_granularity:
             validation_error = validate_time_granularity(time_granularity, required=False)
             if validation_error:
                 return jsonify({"status": "error", "message": validation_error["error"]}), 400
         
-        if params.get('group_by'):
-            for field in params.get('group_by'):
-                if 'decade' in field.lower():
-                    time_granularity = 'decade'
-                    include_time = True
-                    break
-                elif 'era' in field.lower():
-                    time_granularity = 'era'
-                    include_time = True
-                    break
-                elif 'year' in field.lower() and 'dtm.' in field:
-                    time_granularity = 'year'
-                    include_time = True
-                    break
-        
-        # Build SELECT clause
         select_clause = """
         SELECT
             dg.genreName"""
@@ -764,14 +746,10 @@ def genre_engagement():
             'dim_time': 'dtm'
         }
         
-        # Apply common filters
         query = apply_common_filters(query, params, params_list, table_aliases)
-        
-        # Dynamic WHERE clause
         where_clause = build_where_clause(params.get('where'), params_list, table_aliases)
         query += where_clause
         
-        # Dynamic GROUP BY
         default_groups = ["dg.genreName"]
         if include_time:
             default_groups.append(f"dtm.{time_granularity}")
@@ -779,7 +757,7 @@ def genre_engagement():
         group_by_clause = build_group_by_clause(params.get('group_by'), default_groups)
         query += group_by_clause
         
-        # ORDER BY - use aliased columns
+        # Apply window function ONLY if time grouping is enabled
         if include_time:
             query = f"""
             SELECT * FROM (
@@ -798,7 +776,6 @@ def genre_engagement():
     except Exception as e:
         logger.error(f"Error in genre_engagement: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
-
 
 # ============================================================
 # Report 5: TV Series Engagement Analysis
