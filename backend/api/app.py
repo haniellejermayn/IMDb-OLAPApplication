@@ -31,14 +31,6 @@ app.register_blueprint(reports_bp, url_prefix='/api/reports')
 
 # =========== APIs ============ #
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "healthy",
-        "service": "IMDb OLAP API"
-    })
-
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({"error": "Endpoint not found"}), 404
@@ -51,15 +43,7 @@ def internal_error(error):
 
 @app.route('/')
 def base_page():
-    return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'browse_page.html')
-
-@app.route('/browse_page.html')
-def browse():
-    return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'browse_page.html')
-
-@app.route('/chart_test.html')
-def chart_test():
-    return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'chart_test.html')
+    return send_from_directory(os.path.join(BASE_DIR, 'frontend', 'pages'), 'main_page.html')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
