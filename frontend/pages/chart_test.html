@@ -1451,18 +1451,18 @@
             const titleTypes = [...new Set(results.map(r => r.titleType))]; // NO .slice() here!
             
             const colorPalette = [
-                'rgba(54, 162, 235, 0.7)',   
-                'rgba(255, 99, 132, 0.7)',   
-                'rgba(75, 192, 192, 0.7)',   
-                'rgba(153, 102, 255, 0.7)',
-                'rgba(255, 159, 64, 0.7)',   
-                'rgba(255, 206, 86, 0.7)',  
-                'rgba(102, 102, 102, 0.7)',  
-                'rgba(255, 99, 255, 0.7)',   
-                'rgba(99, 255, 132, 0.7)',   
-                'rgba(132, 99, 255, 0.7)',   
-                'rgba(255, 159, 243, 0.7)',  
-                'rgba(64, 224, 208, 0.7)'    
+                'rgba(54, 162, 235, 0.7)',   // Sky Blue
+                'rgba(255, 99, 132, 0.7)',   // Soft Red
+                'rgba(255, 159, 64, 0.7)',   // Orange
+                'rgba(75, 192, 192, 0.7)',   // Teal
+                'rgba(153, 102, 255, 0.7)',  // Violet
+                'rgba(255, 205, 86, 0.7)',   // Golden Yellow
+                'rgba(102, 102, 102, 0.7)',  // Gray
+                'rgba(255, 99, 255, 0.7)',   // Magenta
+                'rgba(99, 255, 132, 0.7)',   // Bright Green
+                'rgba(255, 120, 180, 0.7)',  // Warm Pink
+                'rgba(30, 144, 255, 0.7)',   // Dodger Blue
+                'rgba(186, 85, 211, 0.7)'    // Orchid (Purple-Pink)
             ];
 
             const datasets = titleTypes.map((type, index) => {
