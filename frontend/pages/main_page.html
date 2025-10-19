@@ -8,343 +8,353 @@
                <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
                <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
                <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+               
                <script src="public/js/main_page_script.js"></script>
      </head>
      <body>
-     <div id="testContainer">
-          <h1>Chart Test Page</h1>
-          
-          <div class="info">
-               <strong>Quick Test:</strong> Use the buttons below to test charts with sample data, or select a report and fill in parameters to fetch real data from your backend.
-          </div>
-
-          <div class="test-buttons">
-               <button onclick="testR1Chart()">Test R1 (Sample)</button>
-               <button onclick="testR2Chart()">Test R2 (Sample)</button>
-               <button onclick="testR3Chart()">Test R3 (Sample)</button>
-               <button onclick="testR4Chart()">Test R4 (Sample)</button>
-               <button onclick="testR5Chart()">Test R5 (Sample)</button>
-          </div>
-
-          <h2>Fetch Real Data</h2>
-          
-          <div class="report-selector">
-               <button class="report-btn" onclick="selectReport('R1')">R1: Genre-Rating</button>
-               <button class="report-btn" onclick="selectReport('R2')">R2: Runtime Trends</button>
-               <button class="report-btn" onclick="selectReport('R3')">R3: Person Performance</button>
-               <button class="report-btn" onclick="selectReport('R4')">R4: Genre Engagement</button>
-               <button class="report-btn" onclick="selectReport('R5')">R5: TV Engagement</button>
-          </div>
-
-          <!-- R1 Form -->
-          <div id="formR1" class="form-container hidden">
-               <h3>R1: Genre-Rating Association</h3>
-               <div class="form-grid">
-                    <div class="form-group">
-                         <label class="required">Time Granularity</label>
-                         <select id="r1_time_granularity">
-                         <option value="">Select</option>
-                         <option value="year">Year</option>
-                         <option value="decade">Decade</option>
-                         <option value="era">Era</option>
-                         </select>
-                    </div>
-                    <div class="form-group">
-                         <label>Genres (comma-separated)</label>
-                         <input type="text" id="r1_genres" placeholder="Action,Drama,Comedy">
-                         <small>Leave empty for all genres</small>
-                    </div>
-                    <div class="form-group">
-                         <label>Title Types (comma-separated)</label>
-                         <input type="text" id="r1_title_types" placeholder="movie,tvSeries">
-                    </div>
-                    <div class="form-group">
-                         <label>Start Year</label>
-                         <input type="number" id="r1_start_year" placeholder="2015">
-                    </div>
-                    <div class="form-group">
-                         <label>End Year</label>
-                         <input type="number" id="r1_end_year" placeholder="2020">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Rating</label>
-                         <input type="number" step="0.1" id="r1_min_rating" placeholder="7.0">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Votes</label>
-                         <input type="number" id="r1_min_votes" placeholder="10000">
-                    </div>
-                    <div class="form-group">
-                         <label>Runtime Min (minutes)</label>
-                         <input type="number" id="r1_runtime_min" placeholder="60">
-                    </div>
-                    <div class="form-group">
-                         <label>Runtime Max (minutes)</label>
-                         <input type="number" id="r1_runtime_max" placeholder="180">
-                    </div>
-                    <div class="form-group">
-                         <label>Calculate Chi-Square</label>
-                         <select id="r1_calculate_chi_square">
-                         <option value="false">No</option>
-                         <option value="true">Yes</option>
-                         </select>
-                         <small>Compute chi-square statistic for genre-rating association</small>
-                    </div>
+          <div id="testContainer">
+               <h1>Chart Test Page</h1>
+               
+               <div class="info">
+                    <strong>Quick Test:</strong> Use the buttons below to test charts with sample data, or select a report and fill in parameters to fetch real data from your backend.
                </div>
-               <button class="submit-btn" onclick="fetchR1Data()">Fetch R1 Data</button>
-          </div>
-          
-          <!-- Chi-Square Results Display -->
-          <div id="chiSquareResults" class="hidden" style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #ffc107;">
-               <h3 style="color: #856404; margin-bottom: 15px;">📊 Chi-Square Analysis Results</h3>
-               <div id="chiSquareContent"></div>
-          </div>
 
-          <!-- R2 Form -->
-          <div id="formR2" class="form-container hidden">
-               <h3>R2: Runtime Trends</h3>
-               <div class="form-grid">
-                    <div class="form-group">
-                         <label class="required">Time Granularity</label>
-                         <select id="r2_time_granularity">
-                         <option value="">Select</option>
-                         <option value="year">Year</option>
-                         <option value="decade">Decade</option>
-                         <option value="era">Era</option>
-                         </select>
-                    </div>
-                    <div class="form-group">
-                         <label>Additional Group By</label>
-                         <select id="r2_group_by">
-                         <option value="">None</option>
-                         <option value="genre">Genre</option>
-                         <option value="titleType">Title Type</option>
-                         </select>
-                         <small>Optional: further breakdown the data</small>
-                    </div>
-                    <div class="form-group">
-                         <label>Genres (comma-separated)</label>
-                         <input type="text" id="r2_genres" placeholder="Action,Drama">
-                    </div>
-                    <div class="form-group">
-                         <label>Title Types (comma-separated)</label>
-                         <input type="text" id="r2_title_types" placeholder="movie,tvSeries">
-                    </div>
-                    <div class="form-group">
-                         <label>Start Year</label>
-                         <input type="number" id="r2_start_year" placeholder="2015">
-                    </div>
-                    <div class="form-group">
-                         <label>End Year</label>
-                         <input type="number" id="r2_end_year" placeholder="2020">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Rating</label>
-                         <input type="number" step="0.1" id="r2_min_rating" placeholder="7.0">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Votes</label>
-                         <input type="number" id="r2_min_votes" placeholder="10000">
-                    </div>
-                    <div class="form-group">
-                         <label>Runtime Min</label>
-                         <input type="number" id="r2_runtime_min" placeholder="60">
-                    </div>
-                    <div class="form-group">
-                         <label>Runtime Max</label>
-                         <input type="number" id="r2_runtime_max" placeholder="180">
-                    </div>
+               <div class="test-buttons">
+                    <button onclick="testR1Chart()">Test R1 (Sample)</button>
+                    <button onclick="testR2Chart()">Test R2 (Sample)</button>
+                    <button onclick="testR3Chart()">Test R3 (Sample)</button>
+                    <button onclick="testR4Chart()">Test R4 (Sample)</button>
+                    <button onclick="testR5Chart()">Test R5 (Sample)</button>
                </div>
-               <button class="submit-btn" onclick="fetchR2Data()">Fetch R2 Data</button>
-          </div>
 
-          <!-- R3 Form -->
-          <div id="formR3" class="form-container hidden">
-               <h3>R3: Person Performance Analysis</h3>
-               <div class="form-grid">
-                    <div class="form-group">
-                         <label class="required">Job Category</label>
-                         <select id="r3_job_category">
-                         <option value="">Select</option>
-                         <option value="actor">Actor</option>
-                         <option value="actress">Actress</option>
-                         <option value="archive_footage">Archive Footage</option>
-                         <option value="archive_sound">Archive Sound</option>
-                         <option value="casting_director">Casting Director</option>
-                         <option value="cinematographer">Cinematographer</option>
-                         <option value="composer">Composer</option>
-                         <option value="director">Director</option>
-                         <option value="editor">Editor</option>
-                         <option value="producer">Producer</option>
-                         <option value="production_designer">Production Designer</option>
-                         <option value="self">Self</option>
-                         <option value="writer">Writer</option>
-                         </select>
-                    </div>
-                    <div class="form-group">
-                         <label>Additional Group By</label>
-                         <select id="r3_group_by">
-                         <option value="">None</option>
-                         <option value="genre">Genre</option>
-                         <option value="time_year">Year</option>
-                         <option value="time_decade">Decade</option>
-                         <option value="time_era">Era</option>
-                         </select>
-                         <small>Optional: further breakdown the data</small>
-                    </div>
-                    <div class="form-group">
-                         <label>Genres (comma-separated)</label>
-                         <input type="text" id="r3_genres" placeholder="Action,Drama">
-                    </div>
-                    <div class="form-group">
-                         <label>Title Types (comma-separated)</label>
-                         <input type="text" id="r3_title_types" placeholder="movie,tvSeries">
-                    </div>
-                    <div class="form-group">
-                         <label>Start Year</label>
-                         <input type="number" id="r3_start_year" placeholder="2015">
-                    </div>
-                    <div class="form-group">
-                         <label>End Year</label>
-                         <input type="number" id="r3_end_year" placeholder="2020">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Rating</label>
-                         <input type="number" step="0.1" id="r3_min_rating" placeholder="7.0">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Votes</label>
-                         <input type="number" id="r3_min_votes" placeholder="10000">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Titles (HAVING filter)</label>
-                         <input type="number" id="r3_min_titles" placeholder="5">
-                         <small>Minimum number of titles per person</small>
-                    </div>
+               <h2>Fetch Real Data</h2>
+               
+               <div class="report-selector">
+                    <button class="report-btn" onclick="selectReport('R1')">R1: Genre-Rating</button>
+                    <button class="report-btn" onclick="selectReport('R2')">R2: Runtime Trends</button>
+                    <button class="report-btn" onclick="selectReport('R3')">R3: Person Performance</button>
+                    <button class="report-btn" onclick="selectReport('R4')">R4: Genre Engagement</button>
+                    <button class="report-btn" onclick="selectReport('R5')">R5: TV Engagement</button>
                </div>
-               <button class="submit-btn" onclick="fetchR3Data()">Fetch R3 Data</button>
-          </div>
 
-          <!-- R4 Form -->
-          <div id="formR4" class="form-container hidden">
-               <h3>R4: Genre Engagement</h3>
-               <div class="form-grid">
-                    <div class="form-group">
-                         <label>Additional Group By</label>
-                         <select id="r4_group_by">
-                         <option value="">None</option>
-                         <option value="time_year">Year</option>
-                         <option value="time_decade">Decade</option>
-                         <option value="time_era">Era</option>
-                         </select>
-                         <small>Optional: breakdown by time period</small>
+               <!-- R1 Form -->
+               <div id="formR1" class="form-container hidden">
+                    <h3>R1: Genre-Rating Association</h3>
+                    <div class="form-grid">
+                         <div class="form-group">
+                              <label class="required">Time Granularity</label>
+                              <select id="r1_time_granularity">
+                              <option value="">Select</option>
+                              <option value="year">Year</option>
+                              <option value="decade">Decade</option>
+                              <option value="era">Era</option>
+                              </select>
+                         </div>
+                         <div class="form-group">
+                              <label>Genres (comma-separated)</label>
+                              <input type="text" id="r1_genres" placeholder="Action,Drama,Comedy">
+                              <small>Leave empty for all genres</small>
+                         </div>
+                         <div class="form-group">
+                              <label>Title Types (comma-separated)</label>
+                              <input type="text" id="r1_title_types" placeholder="movie,tvSeries">
+                         </div>
+                         <div class="form-group">
+                              <label>Start Year</label>
+                              <input type="number" id="r1_start_year" placeholder="2015">
+                         </div>
+                         <div class="form-group">
+                              <label>End Year</label>
+                              <input type="number" id="r1_end_year" placeholder="2020">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Rating</label>
+                              <input type="number" step="0.1" id="r1_min_rating" placeholder="7.0">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Votes</label>
+                              <input type="number" id="r1_min_votes" placeholder="10000">
+                         </div>
+                         <div class="form-group">
+                              <label>Runtime Min (minutes)</label>
+                              <input type="number" id="r1_runtime_min" placeholder="60">
+                         </div>
+                         <div class="form-group">
+                              <label>Runtime Max (minutes)</label>
+                              <input type="number" id="r1_runtime_max" placeholder="180">
+                         </div>
+                         <div class="form-group">
+                              <label>Calculate Chi-Square</label>
+                              <select id="r1_calculate_chi_square">
+                              <option value="false">No</option>
+                              <option value="true">Yes</option>
+                              </select>
+                              <small>Compute chi-square statistic for genre-rating association</small>
+                         </div>
                     </div>
-                    <div class="form-group">
-                         <label>Genres (comma-separated)</label>
-                         <input type="text" id="r4_genres" placeholder="Action,Drama">
-                    </div>
-                    <div class="form-group">
-                         <label>Title Types (comma-separated)</label>
-                         <input type="text" id="r4_title_types" placeholder="movie,tvSeries">
-                    </div>
-                    <div class="form-group">
-                         <label>Start Year</label>
-                         <input type="number" id="r4_start_year" placeholder="2015">
-                    </div>
-                    <div class="form-group">
-                         <label>End Year</label>
-                         <input type="number" id="r4_end_year" placeholder="2020">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Rating</label>
-                         <input type="number" step="0.1" id="r4_min_rating" placeholder="7.0">
-                    </div>
-                    <div class="form-group">
-                         <label>Vote Min</label>
-                         <input type="number" id="r4_vote_min" placeholder="1000">
-                    </div>
-                    <div class="form-group">
-                         <label>Vote Max</label>
-                         <input type="number" id="r4_vote_max" placeholder="1000000">
-                    </div>
+                    <button class="submit-btn" onclick="fetchR1Data()">Fetch R1 Data</button>
                </div>
-               <button class="submit-btn" onclick="fetchR4Data()">Fetch R4 Data</button>
-          </div>
-
-          <!-- R5 Form -->
-          <div id="formR5" class="form-container hidden">
-               <h3>R5: TV Series Engagement</h3>
-               <div class="form-grid">
-                    <div class="form-group">
-                         <label class="required">TV Level</label>
-                         <select id="r5_tv_level">
-                         <option value="">Select</option>
-                         <option value="episode">Episode</option>
-                         <option value="season">Season</option>
-                         <option value="series">Series</option>
-                         </select>
-                    </div>
-                    <div class="form-group">
-                         <label>Additional Group By</label>
-                         <select id="r5_group_by">
-                         <option value="">None</option>
-                         <option value="genre">Genre</option>
-                         <option value="time_year">Year</option>
-                         <option value="time_decade">Decade</option>
-                         <option value="time_era">Era</option>
-                         </select>
-                         <small>Optional: further breakdown the data</small>
-                    </div>
-                    <div class="form-group">
-                         <label>Genres (comma-separated)</label>
-                         <input type="text" id="r5_genres" placeholder="Action,Drama">
-                    </div>
-                    <div class="form-group">
-                         <label>Title Types (comma-separated)</label>
-                         <input type="text" id="r5_title_types" placeholder="tvSeries,tvMiniSeries">
-                    </div>
-                    <div class="form-group">
-                         <label>Start Year</label>
-                         <input type="number" id="r5_start_year" placeholder="2015">
-                    </div>
-                    <div class="form-group">
-                         <label>End Year</label>
-                         <input type="number" id="r5_end_year" placeholder="2020">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Rating</label>
-                         <input type="number" step="0.1" id="r5_min_rating" placeholder="7.0">
-                    </div>
-                    <div class="form-group">
-                         <label>Min Votes</label>
-                         <input type="number" id="r5_min_votes" placeholder="10000">
-                    </div>
-                    <div class="form-group">
-                         <label>Completion Status</label>
-                         <select id="r5_completion_status">
-                         <option value="">Any</option>
-                         <option value="ended">Ended</option>
-                         <option value="ongoing">Ongoing</option>
-                         </select>
-                    </div>
-                    <div class="form-group">
-                         <label>Series Name</label>
-                         <input type="text" id="r5_series_name" placeholder="Breaking Bad">
-                         <small>LIKE search on series title</small>
-                    </div>
-                    <div class="form-group">
-                         <label>Season Number</label>
-                         <input type="number" id="r5_season_number" placeholder="1">
-                    </div>
+               
+               <!-- Chi-Square Results Display -->
+               <div id="chiSquareResults" class="hidden" style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #ffc107;">
+                    <h3 style="color: #856404; margin-bottom: 15px;">📊 Chi-Square Analysis Results</h3>
+                    <div id="chiSquareContent"></div>
                </div>
-               <button class="submit-btn" onclick="fetchR5Data()">Fetch R5 Data</button>
-          </div>
 
-          <div id="statusMessage" class="hidden"></div>
+               <!-- R2 Form -->
+               <div id="formR2" class="form-container hidden">
+                    <h3>R2: Runtime Trends</h3>
+                    <div class="form-grid">
+                         <div class="form-group">
+                              <label class="required">Time Granularity</label>
+                              <select id="r2_time_granularity">
+                              <option value="">Select</option>
+                              <option value="year">Year</option>
+                              <option value="decade">Decade</option>
+                              <option value="era">Era</option>
+                              </select>
+                         </div>
+                         <div class="form-group">
+                              <label>Additional Group By</label>
+                              <select id="r2_group_by">
+                              <option value="">None</option>
+                              <option value="genre">Genre</option>
+                              <option value="titleType">Title Type</option>
+                              </select>
+                              <small>Optional: further breakdown the data</small>
+                         </div>
+                         <div class="form-group">
+                              <label>Genres (comma-separated)</label>
+                              <input type="text" id="r2_genres" placeholder="Action,Drama">
+                         </div>
+                         <div class="form-group">
+                              <label>Title Types (comma-separated)</label>
+                              <input type="text" id="r2_title_types" placeholder="movie,tvSeries">
+                         </div>
+                         <div class="form-group">
+                              <label>Start Year</label>
+                              <input type="number" id="r2_start_year" placeholder="2015">
+                         </div>
+                         <div class="form-group">
+                              <label>End Year</label>
+                              <input type="number" id="r2_end_year" placeholder="2020">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Rating</label>
+                              <input type="number" step="0.1" id="r2_min_rating" placeholder="7.0">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Votes</label>
+                              <input type="number" id="r2_min_votes" placeholder="10000">
+                         </div>
+                         <div class="form-group">
+                              <label>Runtime Min</label>
+                              <input type="number" id="r2_runtime_min" placeholder="60">
+                         </div>
+                         <div class="form-group">
+                              <label>Runtime Max</label>
+                              <input type="number" id="r2_runtime_max" placeholder="180">
+                         </div>
+                    </div>
+                    <button class="submit-btn" onclick="fetchR2Data()">Fetch R2 Data</button>
+               </div>
 
-          <div id="chartContainer">
-               <canvas id="resultsChart"></canvas>
+               <!-- R3 Form -->
+               <div id="formR3" class="form-container hidden">
+                    <h3>R3: Person Performance Analysis</h3>
+                    <div class="form-grid">
+                         <div class="form-group">
+                              <label class="required">Job Category</label>
+                              <select id="r3_job_category">
+                              <option value="">Select</option>
+                              <option value="actor">Actor</option>
+                              <option value="actress">Actress</option>
+                              <option value="archive_footage">Archive Footage</option>
+                              <option value="archive_sound">Archive Sound</option>
+                              <option value="casting_director">Casting Director</option>
+                              <option value="cinematographer">Cinematographer</option>
+                              <option value="composer">Composer</option>
+                              <option value="director">Director</option>
+                              <option value="editor">Editor</option>
+                              <option value="producer">Producer</option>
+                              <option value="production_designer">Production Designer</option>
+                              <option value="self">Self</option>
+                              <option value="writer">Writer</option>
+                              </select>
+                         </div>
+                         <div class="form-group">
+                              <label>Additional Group By</label>
+                              <select id="r3_group_by">
+                              <option value="">None</option>
+                              <option value="genre">Genre</option>
+                              <option value="time_year">Year</option>
+                              <option value="time_decade">Decade</option>
+                              <option value="time_era">Era</option>
+                              </select>
+                              <small>Optional: further breakdown the data</small>
+                         </div>
+                         <div class="form-group">
+                              <label>Genres (comma-separated)</label>
+                              <input type="text" id="r3_genres" placeholder="Action,Drama">
+                         </div>
+                         <div class="form-group">
+                              <label>Title Types (comma-separated)</label>
+                              <input type="text" id="r3_title_types" placeholder="movie,tvSeries">
+                         </div>
+                         <div class="form-group">
+                              <label>Start Year</label>
+                              <input type="number" id="r3_start_year" placeholder="2015">
+                         </div>
+                         <div class="form-group">
+                              <label>End Year</label>
+                              <input type="number" id="r3_end_year" placeholder="2020">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Rating</label>
+                              <input type="number" step="0.1" id="r3_min_rating" placeholder="7.0">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Votes</label>
+                              <input type="number" id="r3_min_votes" placeholder="10000">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Titles (HAVING filter)</label>
+                              <input type="number" id="r3_min_titles" placeholder="5">
+                              <small>Minimum number of titles per person</small>
+                         </div>
+                    </div>
+                    <button class="submit-btn" onclick="fetchR3Data()">Fetch R3 Data</button>
+               </div>
+
+               <!-- R4 Form -->
+               <div id="formR4" class="form-container hidden">
+                    <h3>R4: Genre Engagement</h3>
+                    <div class="form-grid">
+                         <div class="form-group">
+                              <label>Additional Group By</label>
+                              <select id="r4_group_by">
+                              <option value="">None</option>
+                              <option value="time_year">Year</option>
+                              <option value="time_decade">Decade</option>
+                              <option value="time_era">Era</option>
+                              </select>
+                              <small>Optional: breakdown by time period</small>
+                         </div>
+                         <div class="form-group">
+                              <label>Genres (comma-separated)</label>
+                              <input type="text" id="r4_genres" placeholder="Action,Drama">
+                         </div>
+                         <div class="form-group">
+                              <label>Title Types (comma-separated)</label>
+                              <input type="text" id="r4_title_types" placeholder="movie,tvSeries">
+                         </div>
+                         <div class="form-group">
+                              <label>Start Year</label>
+                              <input type="number" id="r4_start_year" placeholder="2015">
+                         </div>
+                         <div class="form-group">
+                              <label>End Year</label>
+                              <input type="number" id="r4_end_year" placeholder="2020">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Rating</label>
+                              <input type="number" step="0.1" id="r4_min_rating" placeholder="7.0">
+                         </div>
+                         <div class="form-group">
+                              <label>Vote Min</label>
+                              <input type="number" id="r4_vote_min" placeholder="1000">
+                         </div>
+                         <div class="form-group">
+                              <label>Vote Max</label>
+                              <input type="number" id="r4_vote_max" placeholder="1000000">
+                         </div>
+                    </div>
+                    <button class="submit-btn" onclick="fetchR4Data()">Fetch R4 Data</button>
+               </div>
+
+               <!-- R5 Form -->
+               <div id="formR5" class="form-container hidden">
+                    <h3>R5: TV Series Engagement</h3>
+                    <div class="form-grid">
+                         <div class="form-group">
+                              <label class="required">TV Level</label>
+                              <select id="r5_tv_level">
+                              <option value="">Select</option>
+                              <option value="episode">Episode</option>
+                              <option value="season">Season</option>
+                              <option value="series">Series</option>
+                              </select>
+                         </div>
+                         <div class="form-group">
+                              <label>Additional Group By</label>
+                              <select id="r5_group_by">
+                              <option value="">None</option>
+                              <option value="genre">Genre</option>
+                              <option value="time_year">Year</option>
+                              <option value="time_decade">Decade</option>
+                              <option value="time_era">Era</option>
+                              </select>
+                              <small>Optional: further breakdown the data</small>
+                         </div>
+                         <div class="form-group">
+                              <label>Genres (comma-separated)</label>
+                              <input type="text" id="r5_genres" placeholder="Action,Drama">
+                         </div>
+                         <div class="form-group">
+                              <label>Title Types (comma-separated)</label>
+                              <input type="text" id="r5_title_types" placeholder="tvSeries,tvMiniSeries">
+                         </div>
+                         <div class="form-group">
+                              <label>Start Year</label>
+                              <input type="number" id="r5_start_year" placeholder="2015">
+                         </div>
+                         <div class="form-group">
+                              <label>End Year</label>
+                              <input type="number" id="r5_end_year" placeholder="2020">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Rating</label>
+                              <input type="number" step="0.1" id="r5_min_rating" placeholder="7.0">
+                         </div>
+                         <div class="form-group">
+                              <label>Min Votes</label>
+                              <input type="number" id="r5_min_votes" placeholder="10000">
+                         </div>
+                         <div class="form-group">
+                              <label>Completion Status</label>
+                              <select id="r5_completion_status">
+                              <option value="">Any</option>
+                              <option value="ended">Ended</option>
+                              <option value="ongoing">Ongoing</option>
+                              </select>
+                         </div>
+                         <div class="form-group">
+                              <label>Series Name</label>
+                              <input type="text" id="r5_series_name" placeholder="Breaking Bad">
+                              <small>LIKE search on series title</small>
+                         </div>
+                         <div class="form-group">
+                              <label>Season Number</label>
+                              <input type="number" id="r5_season_number" placeholder="1">
+                         </div>
+                    </div>
+                    <button class="submit-btn" onclick="fetchR5Data()">Fetch R5 Data</button>
+               </div>
+
+               <div id="statusMessage" class="hidden"></div>
+
+               <div id="chartContainer">
+                    <canvas id="resultsChart"></canvas>
+               </div>
+
+               <div id="resultsTableContainer">
+                    <table id="resultsTable" class="display" style="width:100%">
+                         <thead>
+                              <tr id="resultsHeader"></tr>
+                         </thead>
+                         <tbody id="resultsBody"></tbody>
+                    </table>
+               </div>
           </div>
-     </div>
      </body>
 </html>

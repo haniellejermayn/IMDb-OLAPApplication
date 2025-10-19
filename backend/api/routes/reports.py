@@ -567,9 +567,11 @@ def person_performance():
             query += " HAVING " + " AND ".join(having_parts)
         
         if group_by_genre or group_by_time:
-            query += " ORDER BY avg_rating DESC LIMIT 200"
+            query += " LIMIT 200"
         else:
-            query += " ORDER BY avg_rating DESC LIMIT 10"
+            query += " LIMIT 50"
+
+        print(query)
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data})

@@ -278,6 +278,7 @@ async function fetchData(endpoint, payload, reportType) {
           if (result.status === 'success' && result.data) {
           showStatus(`✓ Successfully fetched ${result.data.length} rows`, false);
           renderChart(result.data, reportType);
+          renderTable(result.data);
           
           // Display chi-square results if present (R1 report)
           if (result.chi_square_analysis) {
@@ -386,6 +387,58 @@ function displayChiSquareResults(chiData) {
      container.classList.remove('hidden');
 }
 
+// Main render table function
+function renderTable(results) {
+     console.log("Rendering table with results:", results);
+
+     if (!results || results.length === 0) {
+          console.warn("⚠️ No results to display.");
+          return;
+     }
+
+     // Destroy existing DataTable (if any)
+     if ($.fn.DataTable.isDataTable('#resultsTable')) {
+          $('#resultsTable').DataTable().destroy();
+     }
+
+     // Clear table
+     $('#resultsHeader').empty();
+     $('#resultsBody').empty();
+
+     // Get column names dynamically from first object
+     const columns = Object.keys(results[0]);
+
+     // Build table header
+     columns.forEach(col => {
+          $('#resultsHeader').append(`<th>${col}</th>`);
+     });
+
+     // Build table rows
+     results.forEach(row => {
+          const rowHtml = columns.map(col => `<td>${row[col]}</td>`).join('');
+          $('#resultsBody').append(`<tr>${rowHtml}</tr>`);
+     });
+
+     // Initialize DataTable
+     $('#resultsTable').DataTable({
+          pageLength: 50,      
+          lengthChange: false,  
+          ordering: true,       
+          searching: false,      
+          paging: true,         
+          scrollX: true,        
+          responsive: true,
+          autoWidth: false,     
+          columnDefs: [
+               { width: 'auto', targets: '_all' } 
+          ],
+          language: {
+               paginate: { previous: "←", next: "→" },
+               info: "Showing _START_ to _END_ of _TOTAL_ entries"
+          }
+     });
+}
+
 // Sample data generators (for testing)
 function generateR1Data() {
      return [
@@ -482,7 +535,7 @@ function testR5Chart() {
 }
 
 // Main render table function
-function renderGroupedTable(container, results, reportType, groupByField) {
+/*function renderGroupedTable(container, results, reportType, groupByField) {
      const groupedData = {};
      
      // Group results by the specified field
@@ -613,7 +666,7 @@ function renderGroupedTable(container, results, reportType, groupByField) {
      
      html += '</div>';
      container.innerHTML = html;
-}
+}*/
 
 // Main render chart function
 function renderChart(results, reportType) {

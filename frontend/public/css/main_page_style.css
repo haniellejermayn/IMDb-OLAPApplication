@@ -166,3 +166,36 @@ button:active {
      color: #721c24;
      border: 1px solid #f5c6cb;
 }
+#resultsTableContainer {
+     margin-top: 15px;
+}
+#resultsTable {
+    font-size: 13px;             
+    border-collapse: collapse;   
+}
+#resultsTable thead th {
+    padding: 6px 8px;
+    font-weight: bold;
+    background-color: #f4f4f4;
+}
+#resultsTable tbody td {
+    padding: 4px 8px;             
+    line-height: 1.2;             
+}
+.dataTables_wrapper .dataTables_paginate {
+    font-size: 12px;
+}
+.dataTables_wrapper .dataTables_info {
+    font-size: 12px;
+}
+.dataTables_scrollBody {
+    max-height: 60vh;             
+}
+#resultsTable th,
+#resultsTable td {
+    text-align: left !important;
+}
+#resultsTable td {
+    padding-right: 12px;
+    padding-left: 4px;
+}
