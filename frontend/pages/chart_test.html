@@ -506,16 +506,30 @@
             document.querySelectorAll('.report-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            event.target.classList.add('active');
+            
+            // Find and activate the clicked button
+            const clickedButton = document.querySelector(`[onclick="selectReport('${report}')"]`);
+            if (clickedButton) {
+                clickedButton.classList.add('active');
+            }
             
             // Show selected form
-            document.getElementById(`form${report}`).classList.remove('hidden');
+            const formElement = document.getElementById(`form${report}`);
+            if (formElement) {
+                formElement.classList.remove('hidden');
+            }
             
             // Hide status message
-            document.getElementById('statusMessage').classList.add('hidden');
+            const statusElement = document.getElementById('statusMessage');
+            if (statusElement) {
+                statusElement.classList.add('hidden');
+            }
             
             // Hide chi-square results when switching reports
-            document.getElementById('chiSquareResults').classList.add('hidden');
+            const chiSquareEl = document.getElementById('chiSquareResults');
+            if (chiSquareEl) {
+                chiSquareEl.classList.add('hidden');
+            }
         }
 
         // Helper function to show status messages
@@ -755,14 +769,27 @@
 
                 if (result.status === 'success' && result.data) {
                     showStatus(`✓ Successfully fetched ${result.data.length} rows`, false);
-                    renderChart(result.data, reportType);
+                    
+                    try {
+                        renderChart(result.data, reportType);
+                    } catch (error) {
+                        // Log error to console but don't show to user
+                        console.warn('Chart rendering warning (non-critical):', error);
+                    }
                     
                     // Display chi-square results if present (R1 report)
                     if (result.chi_square_by_period) {
-                        displayChiSquareResults(result.chi_square_by_period);
-                    }else {
+                        try {
+                            displayChiSquareResults(result.chi_square_by_period);
+                        } catch (error) {
+                            console.warn('Chi-square display warning (non-critical):', error);
+                        }
+                    } else {
                         // Hide chi-square section if not present
-                        document.getElementById('chiSquareResults').classList.add('hidden');
+                        const chiSquareEl = document.getElementById('chiSquareResults');
+                        if (chiSquareEl) {
+                            chiSquareEl.classList.add('hidden');
+                        }
                     }
                 } else {
                     showStatus('Error: ' + (result.message || 'Unknown error'), true);
@@ -1394,15 +1421,48 @@
 
         // R2: Runtime Trends Chart
         function renderR2Chart(ctx, results) {
-            const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
-            const titleTypes = [...new Set(results.map(r => r.titleType))];
+            // Helper function to sort time periods (handles years, decades, eras)
+            const sortTimePeriods = (periods) => {
+                return periods.sort((a, b) => {
+                    // Define era order (matching your backend)
+                    const eraOrder = {
+                        'Silent Movie Era (Pre-1930s)': 1,
+                        'The Golden Age of Hollywood (1930-1969)': 2,
+                        'Blockbusters (1970-1989)': 3,
+                        'Digital Revolution (1990-2009)': 4,
+                        'Streaming (2010-Present)': 5
+                    };
+                    
+                    // If both are eras, use era order
+                    if (eraOrder[a] && eraOrder[b]) {
+                        return eraOrder[a] - eraOrder[b];
+                    }
+                    
+                    // Parse numeric values for decades (e.g., "1990s" -> 1990)
+                    const aNum = typeof a === 'string' ? parseInt(a) : a;
+                    const bNum = typeof b === 'string' ? parseInt(b) : b;
+                    
+                    // Sort numerically ASCENDING (for years/decades)
+                    return aNum - bNum;
+                });
+            };
+            
+            const timePeriods = sortTimePeriods([...new Set(results.map(r => r.time_period))]);
+            const titleTypes = [...new Set(results.map(r => r.titleType))]; // NO .slice() here!
             
             const colorPalette = [
-                'rgba(54, 162, 235, 0.7)',
-                'rgba(255, 99, 132, 0.7)',
-                'rgba(75, 192, 192, 0.7)',
+                'rgba(54, 162, 235, 0.7)',   
+                'rgba(255, 99, 132, 0.7)',   
+                'rgba(75, 192, 192, 0.7)',   
                 'rgba(153, 102, 255, 0.7)',
-                'rgba(255, 159, 64, 0.7)'
+                'rgba(255, 159, 64, 0.7)',   
+                'rgba(255, 206, 86, 0.7)',  
+                'rgba(102, 102, 102, 0.7)',  
+                'rgba(255, 99, 255, 0.7)',   
+                'rgba(99, 255, 132, 0.7)',   
+                'rgba(132, 99, 255, 0.7)',   
+                'rgba(255, 159, 243, 0.7)',  
+                'rgba(64, 224, 208, 0.7)'    
             ];
 
             const datasets = titleTypes.map((type, index) => {
@@ -1410,6 +1470,13 @@
                     const entry = results.find(r => r.time_period === period && r.titleType === type);
                     return entry ? parseFloat(entry.avg_runtime) : null;
                 });
+                
+                // Check if this title type has any data
+                const hasData = data.some(val => val !== null);
+                if (!hasData) {
+                    console.warn(`⚠️ No data found for title type: ${type}`);
+                }
+                
                 return {
                     label: type,
                     data: data,
@@ -1417,7 +1484,8 @@
                     backgroundColor: colorPalette[index % colorPalette.length].replace('0.7', '0.2'),
                     borderWidth: 2,
                     fill: false,
-                    tension: 0.4
+                    tension: 0.4,
+                    spanGaps: true // Connect line even with null values
                 };
             });
 
@@ -1439,6 +1507,16 @@
                         legend: {
                             display: true,
                             position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.parsed.y === null) {
+                                        return context.dataset.label + ': No data';
+                                    }
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + ' min';
+                                }
+                            }
                         }
                     },
                     scales: {

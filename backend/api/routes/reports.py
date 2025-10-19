@@ -395,7 +395,7 @@ def runtime_trends():
         if validation_error:
             return jsonify({"status": "error", "message": validation_error["error"]}), 400
         
-        # Check if genre filter is needed
+        # Always include genre join since we might need it for filtering
         need_genre_join = params.get('genres') is not None
         
         # Build SELECT - always group by time and titleType
