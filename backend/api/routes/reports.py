@@ -427,7 +427,8 @@ def runtime_trends():
         query += group_by_clause
         
         # ORDER BY - use aliased columns
-        query += " ORDER BY time_period DESC, dtl.titleType"
+        query += " ORDER BY time_period DESC, dtl.titleType, avg_runtime DESC"
+        query += " LIMIT 1000"
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data})
@@ -565,7 +566,10 @@ def person_performance():
         if having_parts:
             query += " HAVING " + " AND ".join(having_parts)
         
-        query += " ORDER BY avg_rating DESC LIMIT 100"
+        if group_by_genre or group_by_time:
+            query += " ORDER BY avg_rating DESC LIMIT 200"
+        else:
+            query += " ORDER BY avg_rating DESC LIMIT 10"
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data})
@@ -673,9 +677,9 @@ def genre_engagement():
         
         # ORDER BY - use aliased columns
         if include_time:
-            query += " ORDER BY time_period DESC, total_votes DESC"
+            query += " ORDER BY time_period DESC, total_votes DESC LIMIT 200"
         else:
-            query += " ORDER BY total_votes DESC"
+            query += " ORDER BY total_votes DESC LIMIT 10"
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data})
@@ -756,7 +760,8 @@ def tv_engagement():
             select_clause += """,
                 SUM(fp.numVotes) AS total_votes,
                 AVG(fp.averageRating) AS avg_rating,
-                COUNT(DISTINCT de.episodeTconst) AS episode_count
+                COUNT(DISTINCT de.episodeTconst) AS episode_count,
+                COUNT(DISTINCT de.seasonNumber) AS season_count
             FROM dim_episode de
             JOIN dim_title dtl ON de.episodeTconst = dtl.tconst
             JOIN dim_title dtl_parent ON de.parentTconst = dtl_parent.tconst
@@ -941,7 +946,10 @@ def tv_engagement():
             group_by_clause = build_group_by_clause(custom_groups, None)
             query += group_by_clause
         
-        query += " ORDER BY total_votes DESC LIMIT 100"
+        if group_by_genre or group_by_time:
+            query += " ORDER BY total_votes DESC LIMIT 200"
+        else:
+            query += " ORDER BY total_votes DESC LIMIT 10"
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data})

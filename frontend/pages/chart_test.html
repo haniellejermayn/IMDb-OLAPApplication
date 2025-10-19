@@ -278,11 +278,13 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Group by Genre</label>
-                    <select id="r2_group_by_genre">
-                        <option value="false">No</option>
-                        <option value="true">Yes</option>
+                    <label>Additional Group By</label>
+                    <select id="r2_group_by">
+                        <option value="">None</option>
+                        <option value="genre">Genre</option>
+                        <option value="titleType">Title Type</option>
                     </select>
+                    <small>Optional: further breakdown the data</small>
                 </div>
                 <div class="form-group">
                     <label>Genres (comma-separated)</label>
@@ -326,31 +328,33 @@
             <div class="form-grid">
                 <div class="form-group">
                     <label class="required">Job Category</label>
-                    <input type="text" id="r3_job_category" placeholder="director, actor, writer">
-                </div>
-                <div class="form-group">
-                    <label>Group by Genre</label>
-                    <select id="r3_group_by_genre">
-                        <option value="false">No</option>
-                        <option value="true">Yes</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Group by Time</label>
-                    <select id="r3_group_by_time">
-                        <option value="false">No</option>
-                        <option value="true">Yes</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Time Granularity</label>
-                    <select id="r3_time_granularity">
+                    <select id="r3_job_category">
                         <option value="">Select</option>
-                        <option value="year">Year</option>
-                        <option value="decade">Decade</option>
-                        <option value="era">Era</option>
+                        <option value="actor">Actor</option>
+                        <option value="actress">Actress</option>
+                        <option value="archive_footage">Archive Footage</option>
+                        <option value="archive_sound">Archive Sound</option>
+                        <option value="casting_director">Casting Director</option>
+                        <option value="cinematographer">Cinematographer</option>
+                        <option value="composer">Composer</option>
+                        <option value="director">Director</option>
+                        <option value="editor">Editor</option>
+                        <option value="producer">Producer</option>
+                        <option value="production_designer">Production Designer</option>
+                        <option value="self">Self</option>
+                        <option value="writer">Writer</option>
                     </select>
-                    <small>Required if Group by Time = Yes</small>
+                </div>
+                <div class="form-group">
+                    <label>Additional Group By</label>
+                    <select id="r3_group_by">
+                        <option value="">None</option>
+                        <option value="genre">Genre</option>
+                        <option value="time_year">Year</option>
+                        <option value="time_decade">Decade</option>
+                        <option value="time_era">Era</option>
+                    </select>
+                    <small>Optional: further breakdown the data</small>
                 </div>
                 <div class="form-group">
                     <label>Genres (comma-separated)</label>
@@ -390,13 +394,14 @@
             <h3>R4: Genre Engagement</h3>
             <div class="form-grid">
                 <div class="form-group">
-                    <label>Time Granularity (optional)</label>
-                    <select id="r4_time_granularity">
+                    <label>Additional Group By</label>
+                    <select id="r4_group_by">
                         <option value="">None</option>
-                        <option value="year">Year</option>
-                        <option value="decade">Decade</option>
-                        <option value="era">Era</option>
+                        <option value="time_year">Year</option>
+                        <option value="time_decade">Decade</option>
+                        <option value="time_era">Era</option>
                     </select>
+                    <small>Optional: breakdown by time period</small>
                 </div>
                 <div class="form-group">
                     <label>Genres (comma-separated)</label>
@@ -444,27 +449,15 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Group by Genre</label>
-                    <select id="r5_group_by_genre">
-                        <option value="false">No</option>
-                        <option value="true">Yes</option>
+                    <label>Additional Group By</label>
+                    <select id="r5_group_by">
+                        <option value="">None</option>
+                        <option value="genre">Genre</option>
+                        <option value="time_year">Year</option>
+                        <option value="time_decade">Decade</option>
+                        <option value="time_era">Era</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label>Group by Time</label>
-                    <select id="r5_group_by_time">
-                        <option value="false">No</option>
-                        <option value="true">Yes</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Time Granularity</label>
-                    <select id="r5_time_granularity">
-                        <option value="">Select</option>
-                        <option value="year">Year</option>
-                        <option value="decade">Decade</option>
-                        <option value="era">Era</option>
-                    </select>
+                    <small>Optional: further breakdown the data</small>
                 </div>
                 <div class="form-group">
                     <label>Genres (comma-separated)</label>
@@ -614,8 +607,14 @@
                 return;
             }
 
-            const groupByGenre = document.getElementById('r2_group_by_genre').value;
-            if (groupByGenre === 'true') payload.group_by_genre = true;
+            // Get the additional group by value
+            const groupBy = document.getElementById('r2_group_by').value;
+            if (groupBy === 'genre') {
+                payload.group_by_genre = true;
+            } else if (groupBy === 'titleType') {
+                // Send custom group_by for title type
+                payload.group_by = ['dtm.' + payload.time_granularity, 'dtl.titleType'];
+            }
 
             const genres = parseArray(document.getElementById('r2_genres').value);
             if (genres) payload.genres = genres;
@@ -655,18 +654,14 @@
                 return;
             }
 
-            const groupByGenre = document.getElementById('r3_group_by_genre').value;
-            if (groupByGenre === 'true') payload.group_by_genre = true;
-
-            const groupByTime = document.getElementById('r3_group_by_time').value;
-            if (groupByTime === 'true') {
+            // Get the additional group by value
+            const groupBy = document.getElementById('r3_group_by').value;
+            if (groupBy === 'genre') {
+                payload.group_by_genre = true;
+            } else if (groupBy.startsWith('time_')) {
+                const granularity = groupBy.split('_')[1];
                 payload.group_by_time = true;
-                const timeGran = document.getElementById('r3_time_granularity').value;
-                if (!timeGran) {
-                    showStatus('Time Granularity is required when Group by Time is enabled!', true);
-                    return;
-                }
-                payload.time_granularity = timeGran;
+                payload.time_granularity = granularity;
             }
 
             const genres = parseArray(document.getElementById('r3_genres').value);
@@ -697,8 +692,12 @@
         async function fetchR4Data() {
             const payload = {};
 
-            const timeGran = document.getElementById('r4_time_granularity').value;
-            if (timeGran) payload.time_granularity = timeGran;
+            // Get the additional group by value
+            const groupBy = document.getElementById('r4_group_by').value;
+            if (groupBy.startsWith('time_')) {
+                const granularity = groupBy.split('_')[1];
+                payload.time_granularity = granularity;
+            }
 
             const genres = parseArray(document.getElementById('r4_genres').value);
             if (genres) payload.genres = genres;
@@ -735,14 +734,14 @@
                 return;
             }
 
-            const groupByGenre = document.getElementById('r5_group_by_genre').value;
-            if (groupByGenre === 'true') payload.group_by_genre = true;
-
-            const groupByTime = document.getElementById('r5_group_by_time').value;
-            if (groupByTime === 'true') {
+            // Get the additional group by value
+            const groupBy = document.getElementById('r5_group_by').value;
+            if (groupBy === 'genre') {
+                payload.group_by_genre = true;
+            } else if (groupBy.startsWith('time_')) {
+                const granularity = groupBy.split('_')[1];
                 payload.group_by_time = true;
-                const timeGran = document.getElementById('r5_time_granularity').value;
-                if (timeGran) payload.time_granularity = timeGran;
+                payload.time_granularity = granularity;
             }
 
             const genres = parseArray(document.getElementById('r5_genres').value);
@@ -996,6 +995,140 @@
             renderChart(data, 'R5');
         }
 
+        // Main render table function
+        function renderGroupedTable(container, results, reportType, groupByField) {
+            const groupedData = {};
+            
+            // Group results by the specified field
+            results.forEach(row => {
+                const groupKey = row[groupByField] || 'N/A';
+                if (!groupedData[groupKey]) {
+                    groupedData[groupKey] = [];
+                }
+                groupedData[groupKey].push(row);
+            });
+            
+            // Determine column headers based on report type
+            let columns = [];
+            if (reportType === 'R2') {
+                columns = ['time_period', 'titleType', 'avg_runtime', 'title_count', 'avg_rating'];
+            } else if (reportType === 'R3') {
+                columns = ['primaryName', 'avg_rating', 'total_titles'];
+            } else if (reportType === 'R4') {
+                columns = ['time_period', 'total_votes', 'title_count', 'avg_votes_per_title', 'avg_rating'];
+            } else if (reportType === 'R5') {
+                // Check what level of data we have
+                const hasEpisodeNumber = results[0]?.episodeNumber !== undefined;
+                const hasSeasonNumber = results[0]?.seasonNumber !== undefined;
+                
+                if (hasEpisodeNumber && hasSeasonNumber) {
+                    // Episode level
+                    columns = ['series_title', 'seasonNumber', 'episodeNumber', 'total_votes', 'avg_rating'];
+                } else if (hasSeasonNumber) {
+                    // Season level
+                    columns = ['series_title', 'seasonNumber', 'episode_count', 'total_votes', 'avg_rating'];
+                } else {
+                    // Series level - check if we have season/episode counts
+                    const hasSeasonCount = results[0]?.season_count !== undefined;
+                    if (hasSeasonCount) {
+                        columns = ['series_title', 'season_count', 'episode_count', 'total_votes', 'avg_rating'];
+                    } else {
+                        columns = ['series_title', 'episode_count', 'total_votes', 'avg_rating'];
+                    }
+                }
+            }
+            
+            const columnLabels = {
+                'time_period': 'Time Period',
+                'titleType': 'Title Type',
+                'avg_runtime': 'Avg Runtime (min)',
+                'title_count': 'Title Count',
+                'avg_rating': 'Avg Rating',
+                'primaryName': 'Person',
+                'total_titles': 'Total Titles',
+                'total_votes': 'Total Votes',
+                'avg_votes_per_title': 'Avg Votes/Title',
+                'series_title': 'Series Title',
+                'episode_count': 'Episodes',
+                'season_count': 'Seasons',
+                'seasonNumber': 'Season',
+                'episodeNumber': 'Episode'
+            };
+            
+            let html = '<div style="display: grid; gap: 30px;">';
+            let totalGroups = Object.keys(groupedData).length;
+            let groupCount = 0;
+            
+            Object.entries(groupedData).forEach(([groupName, data]) => {
+                groupCount++;
+                // Limit to top 10 per group and sort by most relevant metric
+                let topData = data.slice(0, 10);
+                
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 20px; border-radius: 8px; background: white;">
+                        <h3 style="margin-bottom: 5px; color: #333; font-size: 18px;">
+                            ${groupName} <span style="font-size: 14px; color: #999; font-weight: normal;">([${groupCount}/${totalGroups}])</span>
+                        </h3>
+                        <p style="margin: 0 0 15px 0; font-size: 12px; color: #666;">Showing top ${topData.length} of ${data.length}</p>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                `;
+                
+                columns.forEach(col => {
+                    html += `<th style="padding: 10px; text-align: left; font-weight: 600; white-space: nowrap;">${columnLabels[col] || col}</th>`;
+                });
+                
+                html += `
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                topData.forEach((row, idx) => {
+                    html += `<tr style="border-bottom: 1px solid #eee; ${idx % 2 === 0 ? 'background: #fafafa;' : ''}">`;
+                    
+                    columns.forEach(col => {
+                        let value = row[col];
+                        
+                        // Special formatting for season and episode numbers
+                        if (col === 'seasonNumber' && value !== undefined && value !== null) {
+                            value = `S${String(value).padStart(2, '0')}`;
+                        } else if (col === 'episodeNumber' && value !== undefined && value !== null) {
+                            value = `E${String(value).padStart(2, '0')}`;
+                        }
+                        
+                        // Format numeric values
+                        if (typeof value === 'number') {
+                            if (col.includes('rating')) {
+                                value = value.toFixed(2);
+                            } else if (col.includes('avg') && col.includes('runtime')) {
+                                value = value.toFixed(1);
+                            } else if (col.includes('votes') || col.includes('count')) {
+                                value = Math.round(value).toLocaleString();
+                            } else if (col.includes('titles')) {
+                                value = Math.round(value);
+                            }
+                        }
+                        html += `<td style="padding: 10px;">${value || 'N/A'}</td>`;
+                    });
+                    
+                    html += `</tr>`;
+                });
+                
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
         // Main render chart function
         function renderChart(results, reportType) {
             console.log("Rendering chart for report:", reportType, results);
@@ -1012,6 +1145,41 @@
             }
 
             const chartContainer = document.getElementById('chartContainer');
+            
+            // Check what grouping fields exist in the data
+            const hasGenre = results[0]?.genreName !== undefined;
+            const hasTimePeriod = results[0]?.time_period !== undefined;
+            const hasTitleType = results[0]?.titleType !== undefined;
+            
+            console.log(`R${reportType.slice(1)} - hasGenre: ${hasGenre}, hasTimePeriod: ${hasTimePeriod}, hasTitleType: ${hasTitleType}`);
+            
+            // Use table view if optional grouping is present
+            if (reportType === 'R2' && hasGenre) {
+                renderGroupedTable(chartContainer, results, reportType, 'genreName');
+                return;
+            }
+            if (reportType === 'R3' && hasGenre) {
+                renderGroupedTable(chartContainer, results, reportType, 'genreName');
+                return;
+            }
+            if (reportType === 'R3' && hasTimePeriod) {
+                renderGroupedTable(chartContainer, results, reportType, 'time_period');
+                return;
+            }
+            if (reportType === 'R4' && hasTimePeriod) {
+                renderGroupedTable(chartContainer, results, reportType, 'time_period');
+                return;
+            }
+            if (reportType === 'R5' && hasGenre) {
+                renderGroupedTable(chartContainer, results, reportType, 'genreName');
+                return;
+            }
+            if (reportType === 'R5' && hasTimePeriod) {
+                renderGroupedTable(chartContainer, results, reportType, 'time_period');
+                return;
+            }
+            
+            // Otherwise render chart as normal
             chartContainer.innerHTML = '<canvas id="resultsChart"></canvas>';
             const ctx = document.getElementById('resultsChart').getContext('2d');
 
@@ -1337,10 +1505,17 @@
             
             let labels;
             if (topResults[0].hasOwnProperty('episode_title')) {
-                labels = topResults.map(r => r.episode_title);
+                // Episode level - show series, season, and episode number
+                labels = topResults.map(r => {
+                    const season = String(r.seasonNumber).padStart(2, '0');
+                    const episode = String(r.episodeNumber).padStart(2, '0');
+                    return `${r.series_title} S${season}E${episode}`;
+                });
             } else if (topResults[0].hasOwnProperty('seasonNumber')) {
-                labels = topResults.map(r => `${r.series_title} S${r.seasonNumber}`);
+                // Season level - show series and season
+                labels = topResults.map(r => `${r.series_title} S${String(r.seasonNumber).padStart(2, '0')}`);
             } else {
+                // Series level
                 labels = topResults.map(r => r.series_title);
             }
 
@@ -1377,7 +1552,7 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Top 20 TV Content by Engagement',
+                            text: 'Top 10 TV Content by Engagement',
                             font: { size: 16 }
                         },
                         legend: {
