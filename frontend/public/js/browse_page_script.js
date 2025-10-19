@@ -205,8 +205,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             alert(`Data received from ${endpoint}! Check console for details.`);
 
-            // Optional: Render visualization
-            // renderChart(data);
+            // Render Chart
+            renderChart(data.results, data.query, data.params);
 
         } catch (error) {
             console.error("❌ Error sending data to backend:", error);
@@ -214,6 +214,76 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function renderChart(results, query, params) {
+        const container = document.getElementById("movie_result_container");
+        const ctx = document.getElementById("runtimeChart").getContext("2d");
+
+        try {
+            if (window.runtimeChart && typeof window.runtimeChart.destroy === "function") {
+                window.runtimeChart.destroy();
+            }
+        } catch (err) {
+            console.warn("⚠️ Could not destroy previous chart:", err);
+        }
+
+        if (!results || results.length === 0) {
+            container.innerHTML = "<p>No data available for the selected filters.</p>";
+            return;
+        }
+
+        // 🧩 Dynamically get keys from the first result row
+        const keys = Object.keys(results[0]);
+
+        // Assume the first column is a label (e.g., Year, Era, genreName)
+        const labelKey = keys[0];
+        // Assume the first numeric column is the measure (e.g., avg_runtime, total_votes)
+        const valueKey = keys.find(k => typeof results[0][k] === "number" || !isNaN(results[0][k]));
+
+        // Extract data
+        const labels = results.map(r => r[labelKey]);
+        const values = results.map(r => parseFloat(r[valueKey]));
+
+        // Create Chart.js bar chart
+        window.runtimeChart = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: valueKey, // keep raw column name
+                    data: values,
+                    backgroundColor: "rgba(75, 192, 192, 0.6)",
+                    borderColor: "rgba(75, 192, 192, 1)",
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Visualization of ${valueKey} grouped by ${labelKey}`
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: valueKey }
+                    },
+                    x: {
+                        title: { display: true, text: labelKey }
+                    }
+                }
+            }
+        });
+
+        // Show query and parameters below chart
+        document.getElementById("queryBox").textContent = query || "No query returned";
+        document.getElementById("paramsBox").textContent = JSON.stringify(params || [], null, 2);
+    }
+    
     // === Reset Filters ===
     const resetButton = document.getElementById("reset_button");
 

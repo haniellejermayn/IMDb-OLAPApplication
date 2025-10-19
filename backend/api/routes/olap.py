@@ -100,6 +100,11 @@ def get_runtime_trend():
     print("Parameters: ", params)
     print("--- ✅ End of SQL Log ---\n")
 
-
     data = execute_query(sql, tuple(params))
-    return jsonify(data), 200
+
+    # Return SQL query, parameters, and data
+    return jsonify({
+        "query": sql,
+        "params": params,
+        "results": data
+    }), 200

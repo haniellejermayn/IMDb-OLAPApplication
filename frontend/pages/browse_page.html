@@ -6,6 +6,8 @@
           <link rel="stylesheet" type="text/css" href="public/css/browse_page_style.css">
           <link rel="stylesheet" type="text/css" href="public/css/variables/color.css">
           <link rel="stylesheet" type="text/css" href="public/css/variables/theme.css">
+
+          <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
      </head>
      
      <body>
@@ -281,7 +283,9 @@
                     
                     <div id="movie_result_container">
                          <!-- Container for result -->
-                          <div> Results here... </div>
+                         <canvas id="runtimeChart"></canvas>
+                         <div id="queryBox" style="white-space:pre; background:#f2f2f2; padding:10px; margin-top:20px;"></div>
+                         <div id="paramsBox" style="white-space:pre; background:#f9f9f9; padding:10px; margin-top:10px;"></div>
                     </div>
                </div>
           </div>
