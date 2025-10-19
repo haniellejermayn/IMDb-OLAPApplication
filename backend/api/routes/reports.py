@@ -1,6 +1,7 @@
 from scipy.stats import chi2
 from flask import Blueprint, request, jsonify
 from database import execute_query
+from collections import defaultdict
 import logging
 
 reports_bp = Blueprint('reports', __name__)
