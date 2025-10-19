@@ -1185,7 +1185,7 @@
         // R1: Genre-Rating Association Chart
         function renderR1Chart(ctx, results) {
             const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
-            const ratingBins = ['Low', 'Mid', 'High'];
+            const ratingBins = ['Very Low', 'Low', 'Mid', 'High', 'Very High'];
             
             const datasets = ratingBins.map(bin => {
                 const data = timePeriods.map(period => {
@@ -1193,9 +1193,11 @@
                     return entry ? entry.count : 0;
                 });
                 const colors = {
-                    'Low': 'rgba(255, 99, 132, 0.7)',
-                    'Mid': 'rgba(255, 206, 86, 0.7)',
-                    'High': 'rgba(75, 192, 192, 0.7)'
+                    'Very Low': 'rgba(255, 99, 132, 0.7)',
+                    'Low': 'rgba(255, 206, 86, 0.7)',
+                    'Mid': 'rgba(75, 192, 192, 0.7)',
+                    'High': 'rgba(153, 102, 255, 0.7)',
+                    'Very High': 'rgba(255, 159, 64, 0.7)'
                 };
                 return {
                     label: `${bin} Rating`,

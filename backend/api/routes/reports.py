@@ -1,3 +1,4 @@
+from scipy.stats import chi2
 from flask import Blueprint, request, jsonify
 from database import execute_query
 import logging
@@ -213,9 +214,11 @@ def genre_rating_association():
         SELECT
             dg.genreName AS genre,
             CASE 
+                WHEN fp.averageRating < 2 THEN 'Very Low'
                 WHEN fp.averageRating < 4 THEN 'Low'
-                WHEN fp.averageRating < 7 THEN 'Mid'
-                ELSE 'High'
+                WHEN fp.averageRating < 6 THEN 'Mid'
+                WHEN fp.averageRating < 8 THEN 'High'
+                ELSE 'Very High'
             END AS rating_bin,
             dtm.{time_granularity} AS time_period,
             COUNT(*) AS count
@@ -268,8 +271,8 @@ def genre_rating_association():
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
-def calculate_chi_square_statistic(data):
-    """Calculate chi-square statistic from contingency table data"""
+def calculate_chi_square_statistic(data, alpha=0.05):
+    """Calculate chi-square statistic from contingency table data dynamically"""
     from collections import defaultdict
     
     contingency = defaultdict(lambda: defaultdict(int))
@@ -311,20 +314,20 @@ def calculate_chi_square_statistic(data):
                     "contribution": round(contribution, 4)
                 })
     
-    critical_values = {
-        1: 3.841, 2: 5.991, 3: 7.815, 4: 9.488, 5: 11.070,
-        6: 12.592, 8: 15.507, 10: 18.307, 15: 24.996, 20: 31.410
-    }
-    
-    critical_value = critical_values.get(degrees_of_freedom, "See chi-square table")
-    is_significant = chi_square > critical_value if isinstance(critical_value, float) else None
+    # Compute critical value dynamically using scipy
+    critical_value = chi2.ppf(1 - alpha, degrees_of_freedom)
+    is_significant = chi_square > critical_value
     
     return {
         "chi_square_statistic": round(chi_square, 4),
         "degrees_of_freedom": degrees_of_freedom,
-        "critical_value_alpha_0.05": critical_value,
+        "critical_value_alpha_0.05": round(critical_value, 4),
         "is_significant": is_significant,
-        "interpretation": "Significant association between genre and rating" if is_significant else "No significant association detected" if is_significant is False else "Check chi-square table for significance",
+        "interpretation": (
+            "Significant association between genre and rating"
+            if is_significant else
+            "No significant association detected"
+        ),
         "row_totals": dict(row_totals),
         "column_totals": dict(col_totals),
         "grand_total": grand_total,
