@@ -59,7 +59,15 @@ def get_runtime_trend():
         params.append(start_year)
         params.append(end_year)
 
-    if where_genre and isinstance(where_genre, list) and len(where_genre) > 0:
+    if group_by_genre or (where_genre and isinstance(where_genre, list) and len(where_genre) > 0):
+        from_clause.append("JOIN bridge_title_genre btg ON dtl.tconst = btg.tconst")
+        from_clause.append("JOIN dim_genre dg ON btg.genreKey = dg.genreKey")
+
+    if group_by_genre:
+        select_fields.append("dg.genreName")
+        group_fields.append("dg.genreName")
+
+    if isinstance(where_genre, list) and len(where_genre) > 0:
         placeholders = ', '.join(['%s'] * len(where_genre))
         where_clause.append(f"dg.genreName IN ({placeholders})")
         params.extend(where_genre)
@@ -93,6 +101,5 @@ def get_runtime_trend():
     print("--- ✅ End of SQL Log ---\n")
 
 
-    #data = execute_query(sql, tuple(params))
-    #return jsonify(data)
-    return None
+    data = execute_query(sql, tuple(params))
+    return jsonify(data), 200

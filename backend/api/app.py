@@ -6,6 +6,7 @@ from routes.olap import olap_bp
 from routes.stats import stats_bp
 from flask import Flask, send_from_directory
 import os
+import config
 
 # =========== SET UP ============ #
 
@@ -18,6 +19,7 @@ app = Flask(
     template_folder=os.path.join(BASE_DIR, 'frontend', 'pages')
 )
 CORS(app)  # Enable CORS for frontend
+app.config['DB_CONFIG'] = config.DB_CONFIG
 
 # Register blueprints
 app.register_blueprint(olap_bp, url_prefix='/api/olap')
