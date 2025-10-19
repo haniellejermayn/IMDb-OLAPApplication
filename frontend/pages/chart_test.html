@@ -179,20 +179,6 @@
     <div id="testContainer">
         <h1>Chart Test Page</h1>
         
-        <div class="info">
-            <strong>Quick Test:</strong> Use the buttons below to test charts with sample data, or select a report and fill in parameters to fetch real data from your backend.
-        </div>
-
-        <div class="test-buttons">
-            <button onclick="testR1Chart()">Test R1 (Sample)</button>
-            <button onclick="testR2Chart()">Test R2 (Sample)</button>
-            <button onclick="testR3Chart()">Test R3 (Sample)</button>
-            <button onclick="testR4Chart()">Test R4 (Sample)</button>
-            <button onclick="testR5Chart()">Test R5 (Sample)</button>
-        </div>
-
-        <h2>Fetch Real Data</h2>
-        
         <div class="report-selector">
             <button class="report-btn" onclick="selectReport('R1')">R1: Genre-Rating</button>
             <button class="report-btn" onclick="selectReport('R2')">R2: Runtime Trends</button>
@@ -944,101 +930,6 @@
             }
         }
 
-        // Sample data generators (for testing)
-        function generateR1Data() {
-            return [
-                { genre: 'Action', rating_bin: 'Low', time_period: 2020, count: 150 },
-                { genre: 'Action', rating_bin: 'Mid', time_period: 2020, count: 450 },
-                { genre: 'Action', rating_bin: 'High', time_period: 2020, count: 200 },
-                { genre: 'Drama', rating_bin: 'Low', time_period: 2020, count: 100 },
-                { genre: 'Drama', rating_bin: 'Mid', time_period: 2020, count: 400 },
-                { genre: 'Drama', rating_bin: 'High', time_period: 2020, count: 300 },
-                { genre: 'Action', rating_bin: 'Low', time_period: 2021, count: 120 },
-                { genre: 'Action', rating_bin: 'Mid', time_period: 2021, count: 480 },
-                { genre: 'Action', rating_bin: 'High', time_period: 2021, count: 250 },
-            ];
-        }
-
-        function generateR2Data() {
-            return [
-                { time_period: 2018, titleType: 'movie', avg_runtime: 110.5 },
-                { time_period: 2019, titleType: 'movie', avg_runtime: 115.2 },
-                { time_period: 2020, titleType: 'movie', avg_runtime: 118.8 },
-                { time_period: 2021, titleType: 'movie', avg_runtime: 120.1 },
-                { time_period: 2018, titleType: 'tvSeries', avg_runtime: 42.3 },
-                { time_period: 2019, titleType: 'tvSeries', avg_runtime: 43.1 },
-                { time_period: 2020, titleType: 'tvSeries', avg_runtime: 44.5 },
-                { time_period: 2021, titleType: 'tvSeries', avg_runtime: 45.2 },
-            ];
-        }
-
-        function generateR3Data() {
-            const names = ['Christopher Nolan', 'Steven Spielberg', 'Quentin Tarantino', 
-                          'Martin Scorsese', 'James Cameron', 'Ridley Scott'];
-            return names.map((name, i) => ({
-                nconst: `nm${i}`,
-                primaryName: name,
-                avg_rating: 8.5 - (i * 0.3),
-                total_titles: 20 - (i * 2)
-            }));
-        }
-
-        function generateR4Data() {
-            const genres = ['Action', 'Drama', 'Comedy', 'Thriller', 'Sci-Fi'];
-            return genres.map(genre => ({
-                genreName: genre,
-                total_votes: Math.floor(Math.random() * 500000) + 100000,
-                title_count: Math.floor(Math.random() * 100) + 50,
-                avg_votes_per_title: Math.floor(Math.random() * 5000) + 1000,
-                avg_rating: (Math.random() * 3 + 6).toFixed(1)
-            }));
-        }
-
-        function generateR5Data() {
-            return [
-                { series_title: 'Breaking Bad', total_votes: 1500000, avg_rating: 9.5, episode_count: 62 },
-                { series_title: 'Game of Thrones', total_votes: 1800000, avg_rating: 9.2, episode_count: 73 },
-                { series_title: 'The Office', total_votes: 1200000, avg_rating: 8.9, episode_count: 201 },
-                { series_title: 'Friends', total_votes: 1000000, avg_rating: 8.8, episode_count: 236 },
-            ];
-        }
-
-        // Test functions
-        function testR1Chart() {
-            const data = generateR1Data();
-            console.log('Testing R1 with data:', data);
-            showStatus('Loaded sample R1 data', false);
-            renderChart(data, 'R1');
-        }
-
-        function testR2Chart() {
-            const data = generateR2Data();
-            console.log('Testing R2 with data:', data);
-            showStatus('Loaded sample R2 data', false);
-            renderChart(data, 'R2');
-        }
-
-        function testR3Chart() {
-            const data = generateR3Data();
-            console.log('Testing R3 with data:', data);
-            showStatus('Loaded sample R3 data', false);
-            renderChart(data, 'R3');
-        }
-
-        function testR4Chart() {
-            const data = generateR4Data();
-            console.log('Testing R4 with data:', data);
-            showStatus('Loaded sample R4 data', false);
-            renderChart(data, 'R4');
-        }
-
-        function testR5Chart() {
-            const data = generateR5Data();
-            console.log('Testing R5 with data:', data);
-            showStatus('Loaded sample R5 data', false);
-            renderChart(data, 'R5');
-        }
-
         // Main render table function for R3 to R5
         function renderGroupedTable(container, results, reportType, groupByField) {
             const groupedData = {};
@@ -1785,11 +1676,6 @@
                 }
             });
         }
-
-        // Auto-load a test chart on page load
-        window.addEventListener('DOMContentLoaded', () => {
-            testR2Chart();
-        });
     </script>
 </body>
 </html>
