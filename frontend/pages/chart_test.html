@@ -1172,7 +1172,10 @@
             // Populate with actual data
             results.forEach(row => {
                 if (contingencyData[row.genre] && contingencyData[row.genre][row.rating_bin]) {
-                    contingencyData[row.genre][row.rating_bin][row.time_period] = row.count;
+                    contingencyData[row.genre][row.rating_bin][row.time_period] = {
+                        observed: row.observed,
+                        expected: row.expected
+                    };
                 }
             });
             
@@ -1237,8 +1240,21 @@
                 `;
                 
                 // Observed and Expected columns
+                const binRanges = {
+                    'Very Low': '< 2.0',
+                    'Low': '2.0 - 3.9',
+                    'Mid': '4.0 - 5.9',
+                    'High': '6.0 - 7.9',
+                    'Very High': '≥ 8.0'
+                };
+
                 ratingBins.forEach(bin => {
-                    html += `<th style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #f0f0f0; font-size: 12px;">${bin}<br/><span style="font-weight: normal; font-size: 11px;">Obs/Exp</span></th>`;
+                    const range = binRanges[bin];
+                    html += `<th style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #f0f0f0; font-size: 12px;">
+                        ${bin}<br/>
+                        <span style="font-weight: normal; font-size: 10px; color: #666;">(${range})</span><br/>
+                        <span style="font-weight: normal; font-size: 11px;">Obs/Exp</span>
+                    </th>`;
                 });
 
                 html += `
@@ -1251,15 +1267,16 @@
                 let columnTotals = {};
                 ratingBins.forEach(bin => columnTotals[bin] = 0);
                 let grandTotal = 0;
-
-                // First pass: collect totals for expected frequency calculation
+                
+                // First pass: collect totals
                 const tempContingency = {};
                 genres.forEach(genre => {
                     tempContingency[genre] = {};
                     ratingBins.forEach(bin => {
-                        tempContingency[genre][bin] = contingencyData[genre][bin][period];
-                        columnTotals[bin] += contingencyData[genre][bin][period];
-                        grandTotal += contingencyData[genre][bin][period];
+                        const cellData = contingencyData[genre][bin][period];
+                        tempContingency[genre][bin] = cellData?.observed || 0;
+                        columnTotals[bin] += tempContingency[genre][bin];
+                        grandTotal += tempContingency[genre][bin];
                     });
                 });
 
@@ -1269,11 +1286,10 @@
                     
                     let rowTotal = 0;
                     ratingBins.forEach(bin => {
-                        const observed = tempContingency[genre][bin];
+                        const cellData = contingencyData[genre][bin][period];
+                        const observed = cellData?.observed || 0;
+                        const expected = cellData?.expected || 0;
                         rowTotal += observed;
-                        
-                        // Calculate expected frequency
-                        const expected = (rowTotal * columnTotals[bin]) / grandTotal;
                         
                         html += `<td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-size: 12px;">
                             <div style="color: #0066cc; font-weight: 600;">${observed}</div>
