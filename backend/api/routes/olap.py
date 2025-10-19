@@ -8,96 +8,82 @@ from database import execute_query
 
 olap_bp = Blueprint('olap', __name__)
 
-@olap_bp.route("/runtime_trend", methods=["GET"])
+@olap_bp.route("/runtime_trend", methods=["POST"])
 def get_runtime_trend():
-    group_field = request.args.get("group_field")
+    input_data = request.get_json()
 
-    sql = (
-        f"SELECT dtm.{group_field}, AVG(dtl.runtimeMinutes) AS avg_runtime " + 
-        "FROM fact_title_performance fp " + 
-        "JOIN dim_time dtm ON fp.timeKey = dtm.timeKey " + 
-        "JOIN dim_title dtl ON fp.tconst = dtl.tconst " +
-        "WHERE dtm.year >= %s AND dtm.year <= %s " +
-        f"GROUP BY dtm.{group_field} " + 
-        f"ORDER BY dtm.{group_field} "
-    )
+    group_by_time = input_data.get("group_by_time")
+    group_by_genre = input_data.get("group_by_genre")
+    start_year = input_data.get("start_year")
+    end_year = input_data.get("end_year")
+    where_genre = input_data.get("where_genre")
 
-    params = (start_year, end_year)
-    data = execute_query(sql, params)
+    where_title = input_data.get("where_title")
+    min_rating = input_data.get("min_rating")
+    start_rating = input_data.get("start_rating")
+    end_rating = input_data.get("end_rating")
+    min_votes = input_data.get("min_votes")
 
+
+    select_fields = [f"dtm.{group_by_time}", "AVG(dtl.runtimeMinutes) AS avg_runtime", "dtl.titleType"]
+
+    from_clause =   ["FROM fact_title_performance fp",
+                    "JOIN dim_time dtm ON fp.timeKey = dtm.timeKey",
+                    "JOIN dim_title dtl ON fp.tconst = dtl.tconst"
+                    ]
+
+    where_clause =  ["dtl.runtimeMinutes IS NOT NULL"]
+
+    group_fields =  [f"dtm.{group_by_time}", 
+                    "dtl.titleType"
+                    ]
+
+    params = []
+    if group_by_genre:
+        select_fields.append("dg.genreName")
+        from_clause.append("JOIN bridge_title_genre btg ON dtl.tconst = btg.tconst")
+        from_clause.append("JOIN dim_genre dg ON btg.genreKey = dg.genreKey")
+        group_fields.append("dg.genreName")
+
+    if start_year and end_year:
+        where_clause.append("dtm.year BETWEEN %s AND %s")
+        params.append(start_year)
+        params.append(end_year)
+
+    if where_genre:
+        where_clause.append("dg.genre = %s")
+        params.append(where_genre)
+
+    if where_title:
+        where_clause.append("dtl.titleType = %s")
+        params.append(where_title)
+
+    if min_rating:
+        where_clause.append("fp.averageRating >= %s")
+        params.append(float(min_rating))
+
+
+    if min_votes:
+        where_clause.append("fp.numVotes >= %s")
+        params.append(int(min_votes))
+
+    if start_rating and end_rating:
+        where_clause.append("fp.averageRating BETWEEN %s AND %s")
+        params.append(start_rating)
+        params.append(end_rating)
+
+
+
+    sql = "SELECT " + ', '.join(select_fields) + " " \
+        + ' '.join(from_clause) + " " \
+        + "WHERE " + ' AND '.join(where_clause) + " " \
+        + "GROUP BY " + ', '.join(group_fields) + " " \
+        + "ORDER BY " + ', '.join(group_fields) + " DESC "
+
+
+    data = execute_query(sql, tuple(params))
     return jsonify(data)
 
-@olap_bp.route("/avgrating_genre", methods=["GET"])
-def get_avgrating_genre():
 
-    start_year = request.args.get("start_year", type=int)
-    end_year = request.args.get("end_year", type=int)
-
-    sql = (
-        "SELECT dg.genreName, AVG(averageRating) AS avg_rating " + 
-        "FROM fact_title_performance fp " +  
-        "JOIN dim_title dtl ON fp.tconst = dtl.tconst " +
-        "JOIN dim_time dtm ON fp.timeKey = dtm.timeKey " +
-        "JOIN bridge_title_genre btg ON btg.tconst = dtl.tconst " +
-        "JOIN dim_genre dg ON dg.genreKey = btg.genreKey "
-        "WHERE dtm.year >= %s AND dtm.year <= %s " +
-        "GROUP BY dg.genreName " + 
-        "ORDER BY dg.genreName "
-    )
-
-    params = (start_year, end_year)
-    data = execute_query(sql, params)
-
-    return jsonify(data)
-
-
-@olap_bp.route("/highest_rated_director", methods=["GET"])
-def get_highest_rated_director():
-    start_year = request.args.get("start_year", type=int)
-    end_year = request.args.get("end_year", type=int)
-    genre_field = request.args.get("genre_field")
-
-    sql = (
-        "SELECT dp.primaryName, AVG(fp.averageRating) AS avg_rating "
-        "FROM fact_title_performance fp "
-        "JOIN dim_title dtl ON fp.tconst = dtl.tconst "
-        "JOIN dim_time dtm ON fp.timeKey = dtm.timeKey "
-        "JOIN bridge_title_person btp ON btp.tconst = dtl.tconst "
-        "JOIN dim_person dp ON dp.nconst = btp.nconst "
-        "JOIN bridge_title_genre btg ON btg.tconst = dtl.tconst "
-        "JOIN dim_genre dg ON dg.genreKey = btg.genreKey "
-        "WHERE dtm.year >= %s AND dtm.year <= %s "
-        "AND btp.category = 'director' "
-        "AND dp.primaryName NOT LIKE '[Unknown%' "
-    )
-
-    # Add genre condition only if provided
-    if genre_field:
-        sql += f"AND dg.genreName = '{genre_field}' "
-
-    sql += "GROUP BY dp.primaryName ORDER BY avg_rating DESC LIMIT 5"
-
-    params = (start_year, end_year)
-    data = execute_query(sql, params)
-
-    return jsonify(data)
-
-@olap_bp.route("/polarizing_show", methods=["GET"])
-def get_polarizing_show():
-
-
-    sql = (
-        "SELECT parent_show.primaryTitle, AVG(fp.averageRating) AS avg_rating, STDDEV_SAMP(fp.averageRating) AS stdev_show "
-        "FROM fact_title_performance fp " +
-        "JOIN dim_title dtl ON fp.tconst = dtl.tconst " +
-        "JOIN dim_episode de ON de.episodeTconst = dtl.tconst " +
-        "JOIN dim_title parent_show ON parent_show.tconst = de.parentTconst " +
-        "GROUP BY parent_show.tconst " +
-        "ORDER BY stdev_show DESC "
-    )
-
-    data = execute_query(sql)
-
-    return jsonify(data)
 
 
