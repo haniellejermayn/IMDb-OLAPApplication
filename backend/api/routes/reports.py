@@ -139,7 +139,21 @@ def check_grouping_needs(params):
     custom_group = params.get('group_by')
     if custom_group:
         group_by_genre = any('genreName' in field for field in custom_group)
-        group_by_time = any('dtm.' in field for field in custom_group)
+        
+        # Check for time grouping and extract granularity
+        for field in custom_group:
+            if 'dtm.decade' in field:
+                group_by_time = True
+                time_granularity = 'decade'
+                break
+            elif 'dtm.era' in field:
+                group_by_time = True
+                time_granularity = 'era'
+                break
+            elif 'dtm.year' in field:
+                group_by_time = True
+                time_granularity = 'year'
+                break
     
     return group_by_genre, group_by_time, time_granularity
 
@@ -523,13 +537,24 @@ def person_performance():
         query += where_clause
         
         # Dynamic GROUP BY
-        default_groups = ["dp.nconst", "dp.primaryName"]
-        if group_by_genre:
-            default_groups.append("dg.genreName")
-        if group_by_time:
-            default_groups.append(f"dtm.{time_granularity}")
+        # If custom group_by is provided, check if it includes time field and replace with alias
+        if params.get('group_by'):
+            custom_groups = []
+            for field in params.get('group_by'):
+                # Replace dtm.decade/year/era with time_period alias if present
+                if field in [f'dtm.{time_granularity}', 'dtm.decade', 'dtm.year', 'dtm.era']:
+                    custom_groups.append('time_period')
+                else:
+                    custom_groups.append(field)
+            group_by_clause = build_group_by_clause(custom_groups, None)
+        else:
+            default_groups = ["dp.nconst", "dp.primaryName"]
+            if group_by_genre:
+                default_groups.append("dg.genreName")
+            if group_by_time:
+                default_groups.append('time_period')
+            group_by_clause = build_group_by_clause(None, default_groups)
         
-        group_by_clause = build_group_by_clause(params.get('group_by'), default_groups)
         query += group_by_clause
         
         # HAVING clause
@@ -888,13 +913,32 @@ def tv_engagement():
             if group_by_genre:
                 default_groups.append("dg.genreName")
             if group_by_time:
-                default_groups.append(f"dtm.{time_granularity}")
+                default_groups.append('time_period')
             
-            group_by_clause = build_group_by_clause(params.get('group_by'), default_groups)
+            # Handle custom group_by with time field replacement
+            if params.get('group_by'):
+                custom_groups = []
+                for field in params.get('group_by'):
+                    # Replace dtm.decade/year/era with time_period alias if present
+                    if field in [f'dtm.{time_granularity}', 'dtm.decade', 'dtm.year', 'dtm.era']:
+                        custom_groups.append('time_period')
+                    else:
+                        custom_groups.append(field)
+                group_by_clause = build_group_by_clause(custom_groups, None)
+            else:
+                group_by_clause = build_group_by_clause(None, default_groups)
+            
             query += group_by_clause
         elif params.get('group_by'):
             # Episode level with custom grouping
-            group_by_clause = build_group_by_clause(params.get('group_by'), None)
+            custom_groups = []
+            for field in params.get('group_by'):
+                # Replace dtm.decade/year/era with time_period alias if present
+                if field in [f'dtm.{time_granularity}', 'dtm.decade', 'dtm.year', 'dtm.era']:
+                    custom_groups.append('time_period')
+                else:
+                    custom_groups.append(field)
+            group_by_clause = build_group_by_clause(custom_groups, None)
             query += group_by_clause
         
         query += " ORDER BY total_votes DESC LIMIT 100"
