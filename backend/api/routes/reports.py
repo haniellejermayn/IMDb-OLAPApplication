@@ -316,8 +316,8 @@ def calculate_chi_square_statistic(data, alpha=0.05):
     
     # Compute critical value dynamically using scipy
     critical_value = chi2.ppf(1 - alpha, degrees_of_freedom)
-    is_significant = chi_square > critical_value
-    
+    is_significant = bool(chi_square > critical_value)
+
     return {
         "chi_square_statistic": round(chi_square, 4),
         "degrees_of_freedom": degrees_of_freedom,
