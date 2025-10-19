@@ -12,8 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
             groups: ["#genre_agg", "#time_agg"]
         },
         R2: {
-            filters: ["#season_number_field", "#min_votes_field"],
-            groups: ["#tv_content_agg", "#time_agg"]
+            filters: ["#genre_fields", "#min_rating_field", "#title_type_field", "#year_range_field", "#min_votes_field", "#rating_range_field"],
+            groups: ["#genre_agg", "#time_agg"]
         },
         R3: {
             filters: ["#genre_fields", "#runtime_field", "#completion_status_field"],
@@ -26,10 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
         R5: {
             filters: ["#genre_fields", "#min_rating_field", "#title_type_field", "#year_range_field", "#min_votes_field", "#completion_status_field", "#series_name_field"],
             groups: ["#genre_agg", "#tv_content_agg", "#time_agg"]
-        },
-        R6: {
-            filters: ["#genre_fields", "#min_rating_field", "#title_type_field", "#year_range_field", "#min_votes_field", "#rating_range_field"],
-            groups: ["#genre_agg", "#time_agg"]
         }
     };
 
@@ -151,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
         report = ""
         check = true
 
-        if (payload.report == "R6") {
+        if (payload.report == "R2") {
             if (payload.groups.time == "" || payload.groups.time == null) {
                 report += "Please aggregate by time.\n"
                 check = false
@@ -177,11 +173,10 @@ document.addEventListener("DOMContentLoaded", () => {
     async function sendData() {
         const routeMap = {
             R1: "/genre_analysis",
-            R2: "/tv_trends",
+            R2: "/api/olap/runtime_trend",
             R3: "/completion_status",
             R4: "/actor_performance",
-            R5: "/title_hierarchy",
-            R6: "/api/olap/runtime_trend"
+            R5: "/title_hierarchy"
         };
 
         const endpoint = routeMap[payload.report];
@@ -192,7 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            console.log(`📤 Sending data to ${endpoint} ...`);
+            console.log(`Sending data to ${endpoint} ...`);
             console.log("Payload:", payload);
 
             const response = await fetch(endpoint, {
@@ -206,7 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             const data = await response.json();
-            console.log(`✅ Response from ${endpoint}:`, data);
+            console.log(`Response from ${endpoint}:`, data);
 
             alert(`Data received from ${endpoint}! Check console for details.`);
 
