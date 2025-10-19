@@ -4,6 +4,17 @@ let currentReport = null;
 // Report selection
 function selectReport(report) {
      currentReport = report;
+
+     if (report == "R1") 
+          testR1Chart()
+     else if (report == "R2") 
+          testR2Chart()
+     else if (report == "R3") 
+          testR3Chart()
+     else if (report == "R4") 
+          testR4Chart()
+     else if (report == "R5") 
+          testR5Chart()
      
      // Hide all forms
      document.querySelectorAll('.form-container').forEach(form => {
@@ -1120,5 +1131,5 @@ function renderR5Chart(ctx, results) {
 
 // Auto-load a test chart on page load
 window.addEventListener('DOMContentLoaded', () => {
-     testR2Chart();
+     testR1Chart();
 });
