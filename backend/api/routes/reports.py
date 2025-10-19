@@ -173,12 +173,14 @@ def needs_join(params, group_by_flag, filter_keys):
 
 
 # ============================================================
-# Report 1: Genre-Rating Association
+# Report 1: Genre-Rating Association 
 # ============================================================
+
 @reports_bp.route("/r1", methods=["POST"])
 def genre_rating_association():
     """
     Chi-square analysis: Genre vs Rating Bins
+    Returns both observed and expected frequencies
     
     Required Inputs:
     - time_granularity: "year" | "decade" | "era" (REQUIRED)
@@ -261,26 +263,82 @@ def genre_rating_association():
         # ORDER BY - use aliased columns
         query += " ORDER BY time_period DESC, genre, rating_bin"
         
-        data = execute_query(query, tuple(params_list))
+        raw_data = execute_query(query, tuple(params_list))
         
-        # Calculate chi-square if requested
+        # Calculate expected frequencies and add to each row
+        contingency_data = calculate_contingency_with_expected(raw_data)
+        
         if calculate_chi:
-            chi_results = calculate_chi_square_statistic(data)
+            chi_results = calculate_chi_square_statistic(raw_data)
             return jsonify({
                 "status": "success", 
-                "data": data,
+                "data": contingency_data,
                 "chi_square_by_period": chi_results 
             })
         
-        return jsonify({"status": "success", "data": data})
+        return jsonify({"status": "success", "data": contingency_data})
     except Exception as e:
         logger.error(f"Error in genre_rating_association: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
+def calculate_contingency_with_expected(data):
+    """
+    Add expected frequencies to contingency table data
+    Returns data with observed and expected frequencies for each cell
+    """
+    # Group data by time period
+    time_period_data = defaultdict(list)
+    for row in data:
+        time_period_data[row['time_period']].append(row)
+    
+    # Process each time period
+    result = []
+    
+    for time_period, period_data in time_period_data.items():
+        # Build contingency table for this period
+        contingency = defaultdict(lambda: defaultdict(int))
+        row_totals = defaultdict(int)
+        col_totals = defaultdict(int)
+        grand_total = 0
+        
+        # Collect observed frequencies
+        for row in period_data:
+            genre = row['genre']
+            rating_bin = row['rating_bin']
+            count = row['count']
+            
+            contingency[genre][rating_bin] = count
+            row_totals[genre] += count
+            col_totals[rating_bin] += count
+            grand_total += count
+        
+        if grand_total == 0:
+            continue
+        
+        # Calculate expected frequencies and build output rows
+        for row in period_data:
+            genre = row['genre']
+            rating_bin = row['rating_bin']
+            observed = row['count']
+            
+            # Calculate expected frequency
+            expected = (row_totals[genre] * col_totals[rating_bin]) / grand_total
+            
+            result.append({
+                'genre': genre,
+                'rating_bin': rating_bin,
+                'time_period': time_period,
+                'observed': observed,
+                'expected': round(expected, 2),
+                'standardized_residual': round((observed - expected) / (expected ** 0.5), 3) if expected > 0 else 0
+            })
+    
+    return result
+
+
 def calculate_chi_square_statistic(data, alpha=0.05):
     """Calculate chi-square statistic for each time period separately"""
-    from collections import defaultdict
     
     # Group data by time period first
     time_period_data = defaultdict(list)
@@ -292,10 +350,12 @@ def calculate_chi_square_statistic(data, alpha=0.05):
     # Calculate chi-square for each time period
     for time_period, period_data in time_period_data.items():
         contingency = defaultdict(lambda: defaultdict(int))
+        expected_values = defaultdict(lambda: defaultdict(float))
         row_totals = defaultdict(int)
         col_totals = defaultdict(int)
         grand_total = 0
         
+        # First pass: collect observed frequencies
         for row in period_data:
             genre = row['genre']
             rating_bin = row['rating_bin']
@@ -321,13 +381,20 @@ def calculate_chi_square_statistic(data, alpha=0.05):
             }
             continue
         
+        # Second pass: calculate expected frequencies
+        for genre in contingency:
+            for rating_bin in col_totals.keys():
+                expected = (row_totals[genre] * col_totals[rating_bin]) / grand_total
+                expected_values[genre][rating_bin] = expected
+        
+        # Third pass: calculate chi-square statistic
         chi_square = 0
         cell_contributions = []
         
         for genre in contingency:
             for rating_bin in contingency[genre]:
                 observed = contingency[genre][rating_bin]
-                expected = (row_totals[genre] * col_totals[rating_bin]) / grand_total
+                expected = expected_values[genre][rating_bin]
                 
                 if expected > 0:
                     contribution = ((observed - expected) ** 2) / expected
@@ -344,7 +411,6 @@ def calculate_chi_square_statistic(data, alpha=0.05):
         # Compute critical value dynamically using scipy
         critical_value = chi2.ppf(1 - alpha, degrees_of_freedom)
         is_significant = bool(chi_square > critical_value)
-
         all_results[time_period] = {
             "chi_square_statistic": round(chi_square, 4),
             "degrees_of_freedom": degrees_of_freedom,
@@ -355,6 +421,9 @@ def calculate_chi_square_statistic(data, alpha=0.05):
                 if is_significant else
                 "No significant association detected"
             ),
+            "observed_frequencies": {genre: dict(bins) for genre, bins in contingency.items()},
+            "expected_frequencies": {genre: {bin: round(val, 2) for bin, val in bins.items()} 
+                                    for genre, bins in expected_values.items()},
             "row_totals": dict(row_totals),
             "column_totals": dict(col_totals),
             "grand_total": grand_total,
@@ -362,7 +431,6 @@ def calculate_chi_square_statistic(data, alpha=0.05):
         }
     
     return all_results
-
 
 # ============================================================
 # Report 2: Runtime Trends 

@@ -208,6 +208,7 @@
                 <div class="form-group">
                     <label>Title Types (comma-separated)</label>
                     <input type="text" id="r1_title_types" placeholder="movie,tvSeries">
+                    <small>Leave empty for all title types</small>
                 </div>
                 <div class="form-group">
                     <label>Start Year</label>
@@ -253,10 +254,12 @@
                 <div class="form-group">
                     <label>Genres (comma-separated)</label>
                     <input type="text" id="r2_genres" placeholder="Action,Drama">
+                    <small>Leave empty for all genres</small>
                 </div>
                 <div class="form-group">
                     <label>Title Types (comma-separated)</label>
                     <input type="text" id="r2_title_types" placeholder="movie,tvSeries">
+                    <small>Leave empty for all title types</small>
                 </div>
                 <div class="form-group">
                     <label>Start Year</label>
@@ -323,10 +326,12 @@
                 <div class="form-group">
                     <label>Genres (comma-separated)</label>
                     <input type="text" id="r3_genres" placeholder="Action,Drama">
+                    <small>Leave empty for all genres</small>
                 </div>
                 <div class="form-group">
                     <label>Title Types (comma-separated)</label>
                     <input type="text" id="r3_title_types" placeholder="movie,tvSeries">
+                    <small>Leave empty for all title types</small>
                 </div>
                 <div class="form-group">
                     <label>Start Year</label>
@@ -370,10 +375,12 @@
                 <div class="form-group">
                     <label>Genres (comma-separated)</label>
                     <input type="text" id="r4_genres" placeholder="Action,Drama">
+                    <small>Leave empty for all genres</small>
                 </div>
                 <div class="form-group">
                     <label>Title Types (comma-separated)</label>
                     <input type="text" id="r4_title_types" placeholder="movie,tvSeries">
+                    <small>Leave empty for all title types</small>
                 </div>
                 <div class="form-group">
                     <label>Start Year</label>
@@ -426,10 +433,12 @@
                 <div class="form-group">
                     <label>Genres (comma-separated)</label>
                     <input type="text" id="r5_genres" placeholder="Action,Drama">
+                    <small>Leave empty for all genres</small>
                 </div>
                 <div class="form-group">
-                    <label>Title Types (comma-separated)</label>
+                    <label>Parent Title Types (comma-separated)</label>
                     <input type="text" id="r5_title_types" placeholder="tvSeries,tvMiniSeries">
+                    <small>Leave empty for tvSeries and tvMiniSeries</small>
                 </div>
                 <div class="form-group">
                     <label>Start Year</label>
@@ -1227,51 +1236,69 @@
                                             <th style="padding: 12px; text-align: left; border: 1px solid #ddd; position: sticky; left: 0; background: #667eea; z-index: 10;">Genre</th>
                 `;
                 
+                // Observed and Expected columns
                 ratingBins.forEach(bin => {
-                    html += `<th style="padding: 12px; text-align: center; border: 1px solid #ddd;">${bin}</th>`;
+                    html += `<th style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #f0f0f0; font-size: 12px;">${bin}<br/><span style="font-weight: normal; font-size: 11px;">Obs/Exp</span></th>`;
                 });
-                
+
                 html += `
-                                            <th style="padding: 12px; text-align: center; border: 1px solid #ddd; background: #5568d3;">Row Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                `;
-                
+                                                            <th style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #5568d3;">Row Total</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                `;
+
                 let columnTotals = {};
                 ratingBins.forEach(bin => columnTotals[bin] = 0);
                 let grandTotal = 0;
-                
+
+                // First pass: collect totals for expected frequency calculation
+                const tempContingency = {};
+                genres.forEach(genre => {
+                    tempContingency[genre] = {};
+                    ratingBins.forEach(bin => {
+                        tempContingency[genre][bin] = contingencyData[genre][bin][period];
+                        columnTotals[bin] += contingencyData[genre][bin][period];
+                        grandTotal += contingencyData[genre][bin][period];
+                    });
+                });
+
                 genres.forEach((genre, idx) => {
                     html += `<tr style="${idx % 2 === 0 ? 'background: #fafafa;' : 'background: white;'}">`;
-                    html += `<td style="padding: 12px; font-weight: 600; border: 1px solid #ddd; position: sticky; left: 0; background: ${idx % 2 === 0 ? '#fafafa' : 'white'}; z-index: 5;">${genre}</td>`;
+                    html += `<td style="padding: 8px; font-weight: 600; border: 1px solid #ddd; position: sticky; left: 0; background: ${idx % 2 === 0 ? '#fafafa' : 'white'}; z-index: 5;">${genre}</td>`;
                     
                     let rowTotal = 0;
                     ratingBins.forEach(bin => {
-                        const count = contingencyData[genre][bin][period];
-                        rowTotal += count;
-                        columnTotals[bin] += count;
-                        grandTotal += count;
+                        const observed = tempContingency[genre][bin];
+                        rowTotal += observed;
                         
-                        html += `<td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${count.toLocaleString()}</td>`;
+                        // Calculate expected frequency
+                        const expected = (rowTotal * columnTotals[bin]) / grandTotal;
+                        
+                        html += `<td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-size: 12px;">
+                            <div style="color: #0066cc; font-weight: 600;">${observed}</div>
+                            <div style="color: #999; font-size: 10px;">/ ${expected.toFixed(1)}</div>
+                        </td>`;
                     });
                     
-                    html += `<td style="padding: 12px; text-align: center; border: 1px solid #ddd; background: #f0f0f0; font-weight: 600;">${rowTotal.toLocaleString()}</td>`;
+                    html += `<td style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #f0f0f0; font-weight: 600;">${rowTotal.toLocaleString()}</td>`;
                     html += `</tr>`;
                 });
-                
+
                 // Column totals row
                 html += `
-                                        <tr style="background: #e8eaf6; font-weight: 600;">
-                                            <td style="padding: 12px; border: 1px solid #ddd; position: sticky; left: 0; background: #e8eaf6; z-index: 5;">Column Total</td>
-                `;
-                
+                                                        <tr style="background: #e8eaf6; font-weight: 600;">
+                                                            <td style="padding: 8px; border: 1px solid #ddd; position: sticky; left: 0; background: #e8eaf6; z-index: 5;">Column Total</td>
+                                `;
+
+                let newColumnTotals = {};
                 ratingBins.forEach(bin => {
-                    html += `<td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${columnTotals[bin].toLocaleString()}</td>`;
+                    newColumnTotals[bin] = columnTotals[bin];
+                    html += `<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${columnTotals[bin].toLocaleString()}</td>`;
                 });
-                
+
                 html += `
-                                            <td style="padding: 12px; text-align: center; border: 1px solid #ddd; background: #667eea; color: white;">${grandTotal.toLocaleString()}</td>
+                                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #667eea; color: white;">${grandTotal.toLocaleString()}</td>
                                         </tr>
                                     </tbody>
                                 </table>
