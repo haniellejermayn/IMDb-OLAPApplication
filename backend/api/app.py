@@ -3,8 +3,9 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from routes.olap import olap_bp
-from routes.stats import stats_bp
+from routes.reports import reports_bp
 from flask import Flask, send_from_directory
+from config import DB_CONFIG
 import os
 
 # =========== SET UP ============ #
@@ -19,9 +20,12 @@ app = Flask(
 )
 CORS(app)  # Enable CORS for frontend
 
+# Load database configuration
+app.config['DB_CONFIG'] = DB_CONFIG
+
 # Register blueprints
 app.register_blueprint(olap_bp, url_prefix='/api/olap')
-app.register_blueprint(stats_bp, url_prefix='/api/stats')
+app.register_blueprint(reports_bp, url_prefix='/api/reports')
 
 # =========== APIs ============ #
 
