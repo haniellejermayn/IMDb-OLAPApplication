@@ -6,9 +6,13 @@
           <link rel="stylesheet" type="text/css" href="public/css/browse_page_style.css">
           <link rel="stylesheet" type="text/css" href="public/css/variables/color.css">
           <link rel="stylesheet" type="text/css" href="public/css/variables/theme.css">
+          <link rel="stylesheet" href="https://cdn.datatables.net/2.0.7/css/dataTables.dataTables.min.css">
 
           <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
      </head>
+
+     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+     <script src="https://cdn.datatables.net/2.0.7/js/dataTables.min.js"></script>
      
      <body>
           <div id="main_div">
@@ -282,10 +286,28 @@
                     </div>
                     
                     <div id="movie_result_container">
-                         <!-- Container for result -->
-                         <canvas id="runtimeChart"></canvas>
-                         <div id="queryBox" style="white-space:pre; background:#f2f2f2; padding:10px; margin-top:20px;"></div>
-                         <div id="paramsBox" style="white-space:pre; background:#f9f9f9; padding:10px; margin-top:10px;"></div>
+                         <div id="viewToggle" style="margin-top: 10px; margin-bottom: 10px;">
+                              <a href="#" id="viewTableLink">📊 View Table</a> |
+                              <a href="#" id="viewChartLink">📈 View Chart</a>
+                         </div>
+
+                         <div id="resultsTableContainer">
+                              <table id="resultsTable" class="display" style="width:100%">
+                                   <thead>
+                                        <tr id="resultsHeader"></tr>
+                                   </thead>
+                                   <tbody id="resultsBody"></tbody>
+                              </table>
+                         </div>
+
+                         <div id="chartContainer" style="display:none;">
+                              <canvas id="runtimeChart"></canvas>
+                         </div>
+
+                         <div id="queryBox">
+                         </div>
+                         <div id="paramsBox">
+                         </div>
                     </div>
                </div>
           </div>

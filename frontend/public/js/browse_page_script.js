@@ -206,7 +206,14 @@ document.addEventListener("DOMContentLoaded", () => {
             alert(`Data received from ${endpoint}! Check console for details.`);
 
             // Render Chart
-            renderChart(data.results, data.query, data.params);
+            // renderChart(data.results);
+
+            // Render Table
+            renderTable(data.results)
+
+            // Set Query and Param
+            document.getElementById("queryBox").textContent = data.query || "No query returned";
+            document.getElementById("paramsBox").textContent = JSON.stringify(data.params || [], null, 2);
 
         } catch (error) {
             console.error("❌ Error sending data to backend:", error);
@@ -214,74 +221,55 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function renderChart(results, query, params) {
-        const container = document.getElementById("movie_result_container");
-        const ctx = document.getElementById("runtimeChart").getContext("2d");
-
-        try {
-            if (window.runtimeChart && typeof window.runtimeChart.destroy === "function") {
-                window.runtimeChart.destroy();
-            }
-        } catch (err) {
-            console.warn("⚠️ Could not destroy previous chart:", err);
-        }
+    function renderTable(results) {
+        console.log("Rendering table with results:", results);
 
         if (!results || results.length === 0) {
-            container.innerHTML = "<p>No data available for the selected filters.</p>";
+            console.warn("⚠️ No results to display.");
             return;
         }
 
-        // 🧩 Dynamically get keys from the first result row
-        const keys = Object.keys(results[0]);
+        // Destroy existing DataTable (if any)
+        if ($.fn.DataTable.isDataTable('#resultsTable')) {
+            $('#resultsTable').DataTable().destroy();
+        }
 
-        // Assume the first column is a label (e.g., Year, Era, genreName)
-        const labelKey = keys[0];
-        // Assume the first numeric column is the measure (e.g., avg_runtime, total_votes)
-        const valueKey = keys.find(k => typeof results[0][k] === "number" || !isNaN(results[0][k]));
+        // Clear table
+        $('#resultsHeader').empty();
+        $('#resultsBody').empty();
 
-        // Extract data
-        const labels = results.map(r => r[labelKey]);
-        const values = results.map(r => parseFloat(r[valueKey]));
+        // Get column names dynamically from first object
+        const columns = Object.keys(results[0]);
 
-        // Create Chart.js bar chart
-        window.runtimeChart = new Chart(ctx, {
-            type: "bar",
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: valueKey, // keep raw column name
-                    data: values,
-                    backgroundColor: "rgba(75, 192, 192, 0.6)",
-                    borderColor: "rgba(75, 192, 192, 1)",
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: `Visualization of ${valueKey} grouped by ${labelKey}`
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: { display: true, text: valueKey }
-                    },
-                    x: {
-                        title: { display: true, text: labelKey }
-                    }
-                }
-            }
+        // Build table header
+        columns.forEach(col => {
+            $('#resultsHeader').append(`<th>${col}</th>`);
         });
 
-        // Show query and parameters below chart
-        document.getElementById("queryBox").textContent = query || "No query returned";
-        document.getElementById("paramsBox").textContent = JSON.stringify(params || [], null, 2);
+        // Build table rows
+        results.forEach(row => {
+            const rowHtml = columns.map(col => `<td>${row[col]}</td>`).join('');
+            $('#resultsBody').append(`<tr>${rowHtml}</tr>`);
+        });
+
+        // Initialize DataTable
+        $('#resultsTable').DataTable({
+            pageLength: 50,      
+            lengthChange: false,  
+            ordering: true,       
+            searching: false,      
+            paging: true,         
+            scrollX: true,        
+            responsive: true,
+            autoWidth: false,     
+            columnDefs: [
+                { width: 'auto', targets: '_all' } 
+            ],
+            language: {
+                paginate: { previous: "←", next: "→" },
+                info: "Showing _START_ to _END_ of _TOTAL_ entries"
+            }
+        });
     }
     
     // === Reset Filters ===
@@ -363,4 +351,33 @@ document.addEventListener("DOMContentLoaded", () => {
             reportRadios.forEach(r => (r.checked = false));
         });
     }
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+    const tableContainer = document.getElementById("resultsTableContainer");
+    const chartContainer = document.getElementById("chartContainer");
+    const viewTableLink = document.getElementById("viewTableLink");
+    const viewChartLink = document.getElementById("viewChartLink");
+
+    // Default: show table
+    tableContainer.style.display = "block";
+    chartContainer.style.display = "none";
+
+    // When "View Table" is clicked
+    viewTableLink.addEventListener("click", function(e) {
+        e.preventDefault();
+        tableContainer.style.display = "block";
+        chartContainer.style.display = "none";
+        viewTableLink.style.fontWeight = "bold";
+        viewChartLink.style.fontWeight = "normal";
+    });
+
+    // When "View Chart" is clicked
+    viewChartLink.addEventListener("click", function(e) {
+        e.preventDefault();
+        tableContainer.style.display = "none";
+        chartContainer.style.display = "block";
+        viewChartLink.style.fontWeight = "bold";
+        viewTableLink.style.fontWeight = "normal";
+    });
 });

@@ -351,6 +351,8 @@ h1 {
     padding: 10px;
     border-radius: 10px;
 
+    gap: 10px;
+
     background: linear-gradient(45deg, var(--card-bg-color-dark), var(--card-bg-color-mid));
 }
 
@@ -363,15 +365,89 @@ h1 {
 #queryBox {
     width: 100%;
     height: auto;
-
-    color: var(--card-bg-color-dark)
+    display: block;
+    color: var(--card-bg-color-dark);
+    background: #f2f2f2;
+    padding: 10px;
+    margin-top: 20px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    border-radius: 6px;
 }
 
 #paramsBox {
     width: 100%;
     height: auto;
-    color: var(--card-bg-color-dark)
+    display: block;
+    color: var(--card-bg-color-dark);
+    background: #f9f9f9;
+    padding: 10px;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    border-radius: 6px;
 }
+
+#viewToggle a {
+    color: #007bff;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+#query_val {
+    width: 100%;
+}
+
+#viewToggle a:hover {
+    background-color: #e6f0ff;
+}
+
+#viewToggle a.active {
+    font-weight: bold;
+    background-color: #d0e3ff;
+}
+
+#resultsTable {
+    font-size: 13px;             
+    border-collapse: collapse;   
+}
+
+#resultsTable thead th {
+    padding: 6px 8px;
+    font-weight: bold;
+    background-color: #f4f4f4;
+}
+
+#resultsTable tbody td {
+    padding: 4px 8px;             
+    line-height: 1.2;             
+}
+
+.dataTables_wrapper .dataTables_paginate {
+    font-size: 12px;
+}
+
+.dataTables_wrapper .dataTables_info {
+    font-size: 12px;
+}
+
+.dataTables_scrollBody {
+    max-height: 60vh;             
+}
+
+#resultsTable th,
+#resultsTable td {
+    text-align: left !important;
+}
+
+#resultsTable td {
+    padding-right: 12px;
+    padding-left: 4px;
+}
+
 
 /* ------- INPUT SPECIFIC ------- */
 input[type="checkbox"] {
