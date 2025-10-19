@@ -3,6 +3,7 @@
 <head>
     <title>Chart Test Page</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-3.1.0.min.js" charset="utf-8"></script>
     <style>
         * {
             margin: 0;
@@ -71,7 +72,7 @@
         }
         #chartContainer {
             position: relative;
-            height: 500px;
+            min-height: 500px;
             margin-top: 20px;
             padding: 20px;
             background: #fafafa;
@@ -245,14 +246,6 @@
                 <div class="form-group">
                     <label>Runtime Max (minutes)</label>
                     <input type="number" id="r1_runtime_max" placeholder="180">
-                </div>
-                <div class="form-group">
-                    <label>Calculate Chi-Square</label>
-                    <select id="r1_calculate_chi_square">
-                        <option value="false">No</option>
-                        <option value="true">Yes</option>
-                    </select>
-                    <small>Compute chi-square statistic for genre-rating association</small>
                 </div>
             </div>
             <button class="submit-btn" onclick="fetchR1Data()">Fetch R1 Data</button>
@@ -581,8 +574,8 @@
             const runtimeMax = document.getElementById('r1_runtime_max').value;
             if (runtimeMax) payload.runtime_max = parseInt(runtimeMax);
 
-            const calculateChi = document.getElementById('r1_calculate_chi_square').value;
-            if (calculateChi === 'true') payload.calculate_chi_square = true;
+            // Always calculate chi-square for R1
+            payload.calculate_chi_square = true;
 
             await fetchData('/api/reports/r1', payload, 'R1');
         }
@@ -1182,65 +1175,238 @@
             }
         }
 
-        // R1: Genre-Rating Association Chart
+        // R1: Genre-Rating Association - Contingency Table + Heatmap
         function renderR1Chart(ctx, results) {
+            const chartContainer = document.getElementById('chartContainer');
+            
             const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
+            const genres = [...new Set(results.map(r => r.genre))].sort();
             const ratingBins = ['Very Low', 'Low', 'Mid', 'High', 'Very High'];
             
-            const datasets = ratingBins.map(bin => {
-                const data = timePeriods.map(period => {
-                    const entry = results.find(r => r.time_period === period && r.rating_bin === bin);
-                    return entry ? entry.count : 0;
+            // Build contingency table data structure
+            const contingencyData = {};
+            genres.forEach(genre => {
+                contingencyData[genre] = {};
+                ratingBins.forEach(bin => {
+                    contingencyData[genre][bin] = {};
+                    timePeriods.forEach(period => {
+                        contingencyData[genre][bin][period] = 0;
+                    });
                 });
-                const colors = {
-                    'Very Low': 'rgba(255, 99, 132, 0.7)',
-                    'Low': 'rgba(255, 206, 86, 0.7)',
-                    'Mid': 'rgba(75, 192, 192, 0.7)',
-                    'High': 'rgba(153, 102, 255, 0.7)',
-                    'Very High': 'rgba(255, 159, 64, 0.7)'
-                };
-                return {
-                    label: `${bin} Rating`,
-                    data: data,
-                    backgroundColor: colors[bin],
-                    borderColor: colors[bin].replace('0.7', '1'),
-                    borderWidth: 1
-                };
             });
-
-            currentChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: timePeriods,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Genre-Rating Distribution Over Time',
-                            font: { size: 16 }
-                        },
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        }
-                    },
-                    scales: {
-                        x: {
-                            stacked: true,
-                            title: { display: true, text: 'Time Period' }
-                        },
-                        y: {
-                            stacked: true,
-                            title: { display: true, text: 'Count' },
-                            beginAtZero: true
-                        }
-                    }
+            
+            // Populate with actual data
+            results.forEach(row => {
+                if (contingencyData[row.genre] && contingencyData[row.genre][row.rating_bin]) {
+                    contingencyData[row.genre][row.rating_bin][row.time_period] = row.count;
                 }
             });
+            
+            // Option 1: Show contingency tables by time period
+            let html = `
+                <div style="padding: 20px;">
+                    <h3 style="margin: 0 0 10px 0; color: #333;">R1: Genre-Rating Association Analysis</h3>
+                    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+                        Observed frequencies for chi-square contingency table analysis
+                    </p>
+                    
+                    <div style="margin-bottom: 30px;">
+                        <label for="r1_visualization_toggle" style="font-weight: 600; margin-right: 10px;">View:</label>
+                        <select id="r1_visualization_toggle" onchange="toggleR1Visualization()" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="table">Contingency Tables</option>
+                            <option value="heatmap">Heatmap Visualization</option>
+                        </select>
+                    </div>
+                    
+                    <!-- CONTINGENCY TABLES VIEW -->
+                    <div id="r1_table_view">
+            `;
+            
+            // Generate contingency table for each time period
+            timePeriods.forEach((period, periodIdx) => {
+                html += `
+                    <div style="margin-bottom: 30px; ${periodIdx > 0 ? 'page-break-before: always;' : ''}">
+                        <h4 style="margin: 0 0 15px 0; color: #667eea; font-size: 16px;">
+                            Time Period: ${period}
+                        </h4>
+                        <div style="overflow-x: auto;">
+                            <table style="border-collapse: collapse; font-size: 13px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <thead>
+                                    <tr style="background: #667eea; color: white;">
+                                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Genre</th>
+                `;
+                
+                ratingBins.forEach(bin => {
+                    html += `<th style="padding: 10px; text-align: center; border: 1px solid #ddd;">${bin}</th>`;
+                });
+                
+                html += `
+                                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd; background: #5568d3;">Row Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                let columnTotals = {};
+                ratingBins.forEach(bin => columnTotals[bin] = 0);
+                let grandTotal = 0;
+                
+                genres.forEach((genre, idx) => {
+                    html += `<tr style="${idx % 2 === 0 ? 'background: #fafafa;' : 'background: white;'}">`;
+                    html += `<td style="padding: 10px; font-weight: 600; border: 1px solid #ddd;">${genre}</td>`;
+                    
+                    let rowTotal = 0;
+                    ratingBins.forEach(bin => {
+                        const count = contingencyData[genre][bin][period];
+                        rowTotal += count;
+                        columnTotals[bin] += count;
+                        grandTotal += count;
+                        
+                        html += `<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${count.toLocaleString()}</td>`;
+                    });
+                    
+                    html += `<td style="padding: 10px; text-align: center; border: 1px solid #ddd; background: #f0f0f0; font-weight: 600;">${rowTotal.toLocaleString()}</td>`;
+                    html += `</tr>`;
+                });
+                
+                // Column totals row
+                html += `
+                                    <tr style="background: #e8eaf6; font-weight: 600;">
+                                        <td style="padding: 10px; border: 1px solid #ddd;">Column Total</td>
+                `;
+                
+                ratingBins.forEach(bin => {
+                    html += `<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${columnTotals[bin].toLocaleString()}</td>`;
+                });
+                
+                html += `
+                                        <td style="padding: 10px; text-align: center; border: 1px solid #ddd; background: #667eea; color: white;">${grandTotal.toLocaleString()}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                    
+                    <!-- HEATMAP VIEW (hidden by default) -->
+                    <div id="r1_heatmap_view" style="display: none;">
+                        <div id="r1_plotly_heatmap"></div>
+                    </div>
+                </div>
+            `;
+            
+            chartContainer.innerHTML = html;
+            
+            // Prepare heatmap data using Plotly
+            window.r1HeatmapData = {
+                genres: genres,
+                timePeriods: timePeriods,
+                ratingBins: ratingBins,
+                contingencyData: contingencyData
+            };
+        }
+
+        // Toggle between table and heatmap views
+        function toggleR1Visualization() {
+            const select = document.getElementById('r1_visualization_toggle');
+            const tableView = document.getElementById('r1_table_view');
+            const heatmapView = document.getElementById('r1_heatmap_view');
+            
+            if (select.value === 'table') {
+                tableView.style.display = 'block';
+                heatmapView.style.display = 'none';
+            } else {
+                tableView.style.display = 'none';
+                heatmapView.style.display = 'block';
+                
+                // Render Plotly heatmap if not already rendered
+                if (!window.r1HeatmapRendered) {
+                    renderR1PlotlyHeatmap();
+                    window.r1HeatmapRendered = true;
+                }
+            }
+        }
+
+        // Render Plotly heatmap
+        function renderR1PlotlyHeatmap() {
+            const data = window.r1HeatmapData;
+            if (!data) return;
+            
+            // Check if Plotly is loaded
+            if (typeof Plotly === 'undefined') {
+                document.getElementById('r1_plotly_heatmap').innerHTML = 
+                    '<p style="color: red; padding: 20px;">Plotly library failed to load. Please check your internet connection.</p>';
+                return;
+            }
+            
+            // Create a single heatmap for each time period (stacked vertically)
+            const traces = data.timePeriods.map((period, idx) => {
+                const zData = data.genres.map(genre => {
+                    return data.ratingBins.map(bin => {
+                        return data.contingencyData[genre][bin][period];
+                    });
+                });
+                
+                return {
+                    type: 'heatmap',
+                    z: zData,
+                    x: data.ratingBins,
+                    y: data.genres,
+                    colorscale: [
+                        [0, '#f0f0f0'],
+                        [0.2, '#ffeda0'],
+                        [0.4, '#feb24c'],
+                        [0.6, '#fd8d3c'],
+                        [0.8, '#f03b20'],
+                        [1, '#bd0026']
+                    ],
+                    showscale: idx === data.timePeriods.length - 1,
+                    colorbar: {
+                        title: 'Count',
+                        titleside: 'right',
+                        len: 0.3,
+                        y: 1 - (idx / data.timePeriods.length) - (0.3 / data.timePeriods.length)
+                    },
+                    hovertemplate: `<b>Period: ${period}</b><br>Genre: %{y}<br>Rating: %{x}<br>Count: %{z}<extra></extra>`,
+                    name: `${period}`,
+                    xaxis: `x${idx + 1}`,
+                    yaxis: `y${idx + 1}`
+                };
+            });
+            
+            // Create layout with proper subplot configuration
+            const layout = {
+                title: {
+                    text: 'Genre-Rating Association Heatmap by Time Period',
+                    font: { size: 18 }
+                },
+                height: Math.max(400, 350 * data.timePeriods.length),
+                showlegend: false
+            };
+            
+            // Manually configure subplot axes
+            data.timePeriods.forEach((period, idx) => {
+                const yPosition = 1 - (idx / data.timePeriods.length);
+                const yHeight = 0.85 / data.timePeriods.length;
+                
+                layout[`xaxis${idx + 1}`] = {
+                    title: idx === data.timePeriods.length - 1 ? 'Rating Bin' : '',
+                    domain: [0.1, 0.85],
+                    anchor: `y${idx + 1}`
+                };
+                
+                layout[`yaxis${idx + 1}`] = {
+                    title: `${period}`,
+                    domain: [yPosition - yHeight, yPosition - 0.05],
+                    anchor: `x${idx + 1}`
+                };
+            });
+            
+            Plotly.newPlot('r1_plotly_heatmap', traces, layout, {responsive: true});
         }
 
         // R2: Runtime Trends Chart
