@@ -1202,24 +1202,13 @@
                 }
             });
             
-            // Option 1: Show contingency tables by time period
+            // Show contingency tables by time period
             let html = `
                 <div style="padding: 20px;">
                     <h3 style="margin: 0 0 10px 0; color: #333;">R1: Genre-Rating Association Analysis</h3>
                     <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
                         Observed frequencies for chi-square contingency table analysis
                     </p>
-                    
-                    <div style="margin-bottom: 30px;">
-                        <label for="r1_visualization_toggle" style="font-weight: 600; margin-right: 10px;">View:</label>
-                        <select id="r1_visualization_toggle" onchange="toggleR1Visualization()" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px;">
-                            <option value="table">Contingency Tables</option>
-                            <option value="heatmap">Heatmap Visualization</option>
-                        </select>
-                    </div>
-                    
-                    <!-- CONTINGENCY TABLES VIEW -->
-                    <div id="r1_table_view">
             `;
             
             // Generate contingency table for each time period
@@ -1290,123 +1279,10 @@
             });
             
             html += `
-                    </div>
-                    
-                    <!-- HEATMAP VIEW (hidden by default) -->
-                    <div id="r1_heatmap_view" style="display: none;">
-                        <div id="r1_plotly_heatmap"></div>
-                    </div>
                 </div>
             `;
             
             chartContainer.innerHTML = html;
-            
-            // Prepare heatmap data using Plotly
-            window.r1HeatmapData = {
-                genres: genres,
-                timePeriods: timePeriods,
-                ratingBins: ratingBins,
-                contingencyData: contingencyData
-            };
-        }
-
-        // Toggle between table and heatmap views
-        function toggleR1Visualization() {
-            const select = document.getElementById('r1_visualization_toggle');
-            const tableView = document.getElementById('r1_table_view');
-            const heatmapView = document.getElementById('r1_heatmap_view');
-            
-            if (select.value === 'table') {
-                tableView.style.display = 'block';
-                heatmapView.style.display = 'none';
-            } else {
-                tableView.style.display = 'none';
-                heatmapView.style.display = 'block';
-                
-                // Render Plotly heatmap if not already rendered
-                if (!window.r1HeatmapRendered) {
-                    renderR1PlotlyHeatmap();
-                    window.r1HeatmapRendered = true;
-                }
-            }
-        }
-
-        // Render Plotly heatmap
-        function renderR1PlotlyHeatmap() {
-            const data = window.r1HeatmapData;
-            if (!data) return;
-            
-            // Check if Plotly is loaded
-            if (typeof Plotly === 'undefined') {
-                document.getElementById('r1_plotly_heatmap').innerHTML = 
-                    '<p style="color: red; padding: 20px;">Plotly library failed to load. Please check your internet connection.</p>';
-                return;
-            }
-            
-            // Create a single heatmap for each time period (stacked vertically)
-            const traces = data.timePeriods.map((period, idx) => {
-                const zData = data.genres.map(genre => {
-                    return data.ratingBins.map(bin => {
-                        return data.contingencyData[genre][bin][period];
-                    });
-                });
-                
-                return {
-                    type: 'heatmap',
-                    z: zData,
-                    x: data.ratingBins,
-                    y: data.genres,
-                    colorscale: [
-                        [0, '#f0f0f0'],
-                        [0.2, '#ffeda0'],
-                        [0.4, '#feb24c'],
-                        [0.6, '#fd8d3c'],
-                        [0.8, '#f03b20'],
-                        [1, '#bd0026']
-                    ],
-                    showscale: idx === data.timePeriods.length - 1,
-                    colorbar: {
-                        title: 'Count',
-                        titleside: 'right',
-                        len: 0.3,
-                        y: 1 - (idx / data.timePeriods.length) - (0.3 / data.timePeriods.length)
-                    },
-                    hovertemplate: `<b>Period: ${period}</b><br>Genre: %{y}<br>Rating: %{x}<br>Count: %{z}<extra></extra>`,
-                    name: `${period}`,
-                    xaxis: `x${idx + 1}`,
-                    yaxis: `y${idx + 1}`
-                };
-            });
-            
-            // Create layout with proper subplot configuration
-            const layout = {
-                title: {
-                    text: 'Genre-Rating Association Heatmap by Time Period',
-                    font: { size: 18 }
-                },
-                height: Math.max(400, 350 * data.timePeriods.length),
-                showlegend: false
-            };
-            
-            // Manually configure subplot axes
-            data.timePeriods.forEach((period, idx) => {
-                const yPosition = 1 - (idx / data.timePeriods.length);
-                const yHeight = 0.85 / data.timePeriods.length;
-                
-                layout[`xaxis${idx + 1}`] = {
-                    title: idx === data.timePeriods.length - 1 ? 'Rating Bin' : '',
-                    domain: [0.1, 0.85],
-                    anchor: `y${idx + 1}`
-                };
-                
-                layout[`yaxis${idx + 1}`] = {
-                    title: `${period}`,
-                    domain: [yPosition - yHeight, yPosition - 0.05],
-                    anchor: `x${idx + 1}`
-                };
-            });
-            
-            Plotly.newPlot('r1_plotly_heatmap', traces, layout, {responsive: true});
         }
 
         // R2: Runtime Trends Chart
