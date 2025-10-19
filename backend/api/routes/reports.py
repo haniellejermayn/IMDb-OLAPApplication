@@ -343,13 +343,9 @@ def runtime_trends():
     Required Inputs:
     - time_granularity: "year" | "decade" | "era" (REQUIRED)
     
-    Optional GROUP BY:
-    - group_by_genre: true/false (adds genre to GROUP BY)
-    - group_by: ["dtm.decade", "dtl.titleType", "dg.genreName"] (custom override)
-    
     Optional WHERE (Filters):
-    - genres: ["Action", "Drama"] (multi-select)
     - title_types: ["movie", "tvSeries"] (multi-select)
+    - genres: ["Action", "Drama"] (multi-select)
     - start_year: number
     - end_year: number
     - min_rating: number
@@ -367,25 +363,14 @@ def runtime_trends():
         if validation_error:
             return jsonify({"status": "error", "message": validation_error["error"]}), 400
         
-        # Check if genre grouping is needed
-        include_genre = params.get('group_by_genre', False) or (
-            params.get('group_by') and any('genreName' in field for field in params.get('group_by'))
-        )
+        # Check if genre filter is needed
+        need_genre_join = params.get('genres') is not None
         
-        # Check if genre JOIN is needed (grouping OR filtering)
-        need_genre_join = include_genre or params.get('genres')
-        
-        # Build SELECT with optional genre
-        select_clause = f"""
+        # Build SELECT - always group by time and titleType
+        query = f"""
         SELECT
             dtm.{time_granularity} AS time_period,
-            dtl.titleType"""
-        
-        if include_genre:
-            select_clause += """,
-            dg.genreName"""
-        
-        select_clause += """,
+            dtl.titleType,
             AVG(dtl.runtimeMinutes) AS avg_runtime,
             COUNT(DISTINCT dtl.tconst) AS title_count,
             AVG(fp.averageRating) AS avg_rating
@@ -394,11 +379,11 @@ def runtime_trends():
         JOIN dim_time dtm ON fp.timeKey = dtm.timeKey"""
         
         if need_genre_join:
-            select_clause += """
+            query += """
         JOIN bridge_title_genre btg ON dtl.tconst = btg.tconst
         JOIN dim_genre dg ON btg.genreKey = dg.genreKey"""
         
-        query = select_clause + """
+        query += """
         WHERE dtl.runtimeMinutes IS NOT NULL
         """
         
@@ -413,29 +398,23 @@ def runtime_trends():
         
         # Apply common filters
         query = apply_common_filters(query, params, params_list, table_aliases)
+
         
         # Dynamic WHERE clause
         where_clause = build_where_clause(params.get('where'), params_list, table_aliases)
         query += where_clause
         
-        # Dynamic GROUP BY
-        default_groups = [f"dtm.{time_granularity}", "dtl.titleType"]
-        if include_genre:
-            default_groups.append("dg.genreName")
+        # GROUP BY - always time and titleType
+        query += f" GROUP BY dtm.{time_granularity}, dtl.titleType"
         
-        group_by_clause = build_group_by_clause(params.get('group_by'), default_groups)
-        query += group_by_clause
-        
-        # ORDER BY - use aliased columns
+        # ORDER BY
         query += " ORDER BY time_period DESC, dtl.titleType, avg_runtime DESC"
-        query += " LIMIT 1000"
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data})
     except Exception as e:
         logger.error(f"Error in runtime_trends: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
-
 
 # ============================================================
 # Report 3: Person Performance Analysis

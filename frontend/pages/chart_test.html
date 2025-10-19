@@ -266,7 +266,7 @@
 
         <!-- R2 Form -->
         <div id="formR2" class="form-container hidden">
-            <h3>R2: Runtime Trends</h3>
+            <h3>R2: Runtime Trends by Type</h3>
             <div class="form-grid">
                 <div class="form-group">
                     <label class="required">Time Granularity</label>
@@ -276,15 +276,6 @@
                         <option value="decade">Decade</option>
                         <option value="era">Era</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label>Additional Group By</label>
-                    <select id="r2_group_by">
-                        <option value="">None</option>
-                        <option value="genre">Genre</option>
-                        <option value="titleType">Title Type</option>
-                    </select>
-                    <small>Optional: further breakdown the data</small>
                 </div>
                 <div class="form-group">
                     <label>Genres (comma-separated)</label>
@@ -605,15 +596,6 @@
             if (!payload.time_granularity) {
                 showStatus('Time Granularity is required for R2!', true);
                 return;
-            }
-
-            // Get the additional group by value
-            const groupBy = document.getElementById('r2_group_by').value;
-            if (groupBy === 'genre') {
-                payload.group_by_genre = true;
-            } else if (groupBy === 'titleType') {
-                // Send custom group_by for title type
-                payload.group_by = ['dtm.' + payload.time_granularity, 'dtl.titleType'];
             }
 
             const genres = parseArray(document.getElementById('r2_genres').value);
@@ -995,7 +977,7 @@
             renderChart(data, 'R5');
         }
 
-        // Main render table function
+        // Main render table function for R3 to R5
         function renderGroupedTable(container, results, reportType, groupByField) {
             const groupedData = {};
             
@@ -1154,10 +1136,6 @@
             console.log(`R${reportType.slice(1)} - hasGenre: ${hasGenre}, hasTimePeriod: ${hasTimePeriod}, hasTitleType: ${hasTitleType}`);
             
             // Use table view if optional grouping is present
-            if (reportType === 'R2' && hasGenre) {
-                renderGroupedTable(chartContainer, results, reportType, 'genreName');
-                return;
-            }
             if (reportType === 'R3' && hasGenre) {
                 renderGroupedTable(chartContainer, results, reportType, 'genreName');
                 return;
@@ -1393,7 +1371,7 @@
 
         // R4: Genre Engagement Chart
         function renderR4Chart(ctx, results) {
-            const hasTimePeriod = results[0].hasOwnProperty('time_period');
+            const hasTimePeriod = results[0]?.time_period !== undefined;
             
             if (hasTimePeriod) {
                 const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
