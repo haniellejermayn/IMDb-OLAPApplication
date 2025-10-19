@@ -1159,7 +1159,7 @@
         function renderR3Chart(ctx, results) {
             const topResults = results
                 .sort((a, b) => parseFloat(b.avg_rating) - parseFloat(a.avg_rating))
-                .slice(0, 20);
+                .slice(0, 10);
             
             const labels = topResults.map(r => r.primaryName || r.nconst);
             const ratings = topResults.map(r => parseFloat(r.avg_rating));
@@ -1195,7 +1195,7 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Top 20 Person Performance by Average Rating',
+                            text: 'Top 10 Person Performance by Average Rating',
                             font: { size: 16 }
                         },
                         legend: {
@@ -1285,7 +1285,7 @@
             } else {
                 const sortedResults = results
                     .sort((a, b) => parseInt(b.total_votes) - parseInt(a.total_votes))
-                    .slice(0, 15);
+                    .slice(0, 10);
                 
                 const labels = sortedResults.map(r => r.genreName);
                 const votes = sortedResults.map(r => parseInt(r.total_votes));
@@ -1308,7 +1308,7 @@
                         plugins: {
                             title: {
                                 display: true,
-                                text: 'Top 15 Genres by Total Engagement',
+                                text: 'Top 10 Genres by Total Engagement',
                                 font: { size: 16 }
                             },
                             legend: { display: false }
@@ -1331,7 +1331,7 @@
         function renderR5Chart(ctx, results) {
             const topResults = results
                 .sort((a, b) => parseInt(b.total_votes) - parseInt(a.total_votes))
-                .slice(0, 20);
+                .slice(0, 10);
             
             let labels;
             if (topResults[0].hasOwnProperty('episode_title')) {
