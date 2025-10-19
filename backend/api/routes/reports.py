@@ -204,11 +204,14 @@ def genre_rating_association():
         time_granularity = params.get('time_granularity')
         
         # Validate required time_granularity
-        validation_error = validate_time_granularity(time_granularity, required=True)
-        if validation_error:
-            return jsonify({"status": "error", "message": validation_error["error"]}), 400
+        if time_granularity:
+            validation_error = validate_time_granularity(time_granularity, required=False)
+            if validation_error:
+                return jsonify({"status": "error", "message": validation_error["error"]}), 400
         
         calculate_chi = params.get('calculate_chi_square', False)
+        
+        time_field = f"dtm.{time_granularity}" if time_granularity else "'All Time'"
         
         query = f"""
         SELECT
@@ -220,7 +223,7 @@ def genre_rating_association():
                 WHEN fp.averageRating < 8 THEN 'High'
                 ELSE 'Very High'
             END AS rating_bin,
-            dtm.{time_granularity} AS time_period,
+            {time_field} AS time_period,
             COUNT(*) AS count
         FROM fact_title_performance fp
         JOIN dim_title dtl ON fp.tconst = dtl.tconst
@@ -247,7 +250,11 @@ def genre_rating_association():
         query += where_clause
         
         # Dynamic GROUP BY
-        default_groups = ["dg.genreName", "rating_bin", f"dtm.{time_granularity}"]
+        default_groups = ["dg.genreName", "rating_bin"]
+        if time_granularity:
+            default_groups.append(f"dtm.{time_granularity}")
+        else:
+            default_groups.append("time_period")
         group_by_clause = build_group_by_clause(params.get('group_by'), default_groups)
         query += group_by_clause
         
@@ -262,7 +269,7 @@ def genre_rating_association():
             return jsonify({
                 "status": "success", 
                 "data": data,
-                "chi_square_analysis": chi_results
+                "chi_square_by_period": chi_results 
             })
         
         return jsonify({"status": "success", "data": data})
@@ -272,67 +279,89 @@ def genre_rating_association():
 
 
 def calculate_chi_square_statistic(data, alpha=0.05):
-    """Calculate chi-square statistic from contingency table data dynamically"""
+    """Calculate chi-square statistic for each time period separately"""
     from collections import defaultdict
     
-    contingency = defaultdict(lambda: defaultdict(int))
-    row_totals = defaultdict(int)
-    col_totals = defaultdict(int)
-    grand_total = 0
-    
+    # Group data by time period first
+    time_period_data = defaultdict(list)
     for row in data:
-        genre = row['genre']
-        rating_bin = row['rating_bin']
-        count = row['count']
+        time_period_data[row['time_period']].append(row)
+    
+    all_results = {}
+    
+    # Calculate chi-square for each time period
+    for time_period, period_data in time_period_data.items():
+        contingency = defaultdict(lambda: defaultdict(int))
+        row_totals = defaultdict(int)
+        col_totals = defaultdict(int)
+        grand_total = 0
         
-        contingency[genre][rating_bin] = count
-        row_totals[genre] += count
-        col_totals[rating_bin] += count
-        grand_total += count
-    
-    if grand_total == 0:
-        return {"error": "No data for chi-square calculation"}
-    
-    chi_square = 0
-    degrees_of_freedom = (len(row_totals) - 1) * (len(col_totals) - 1)
-    cell_contributions = []
-    
-    for genre in contingency:
-        for rating_bin in contingency[genre]:
-            observed = contingency[genre][rating_bin]
-            expected = (row_totals[genre] * col_totals[rating_bin]) / grand_total
+        for row in period_data:
+            genre = row['genre']
+            rating_bin = row['rating_bin']
+            count = row['count']
             
-            if expected > 0:
-                contribution = ((observed - expected) ** 2) / expected
-                chi_square += contribution
+            contingency[genre][rating_bin] = count
+            row_totals[genre] += count
+            col_totals[rating_bin] += count
+            grand_total += count
+        
+        if grand_total == 0:
+            all_results[time_period] = {"error": "No data for chi-square calculation"}
+            continue
+        
+        # Check if we have enough data for chi-square
+        num_rows = len(row_totals)
+        num_cols = len(col_totals)
+        degrees_of_freedom = (num_rows - 1) * (num_cols - 1)
+        
+        if degrees_of_freedom <= 0:
+            all_results[time_period] = {
+                "error": f"Insufficient data: need at least 2 genres and 2 rating bins (found {num_rows} genres, {num_cols} rating bins)"
+            }
+            continue
+        
+        chi_square = 0
+        cell_contributions = []
+        
+        for genre in contingency:
+            for rating_bin in contingency[genre]:
+                observed = contingency[genre][rating_bin]
+                expected = (row_totals[genre] * col_totals[rating_bin]) / grand_total
                 
-                cell_contributions.append({
-                    "genre": genre,
-                    "rating_bin": rating_bin,
-                    "observed": observed,
-                    "expected": round(expected, 2),
-                    "contribution": round(contribution, 4)
-                })
-    
-    # Compute critical value dynamically using scipy
-    critical_value = chi2.ppf(1 - alpha, degrees_of_freedom)
-    is_significant = bool(chi_square > critical_value)
+                if expected > 0:
+                    contribution = ((observed - expected) ** 2) / expected
+                    chi_square += contribution
+                    
+                    cell_contributions.append({
+                        "genre": genre,
+                        "rating_bin": rating_bin,
+                        "observed": observed,
+                        "expected": round(expected, 2),
+                        "contribution": round(contribution, 4)
+                    })
+        
+        # Compute critical value dynamically using scipy
+        critical_value = chi2.ppf(1 - alpha, degrees_of_freedom)
+        is_significant = bool(chi_square > critical_value)
 
-    return {
-        "chi_square_statistic": round(chi_square, 4),
-        "degrees_of_freedom": degrees_of_freedom,
-        "critical_value_alpha_0.05": round(critical_value, 4),
-        "is_significant": is_significant,
-        "interpretation": (
-            "Significant association between genre and rating"
-            if is_significant else
-            "No significant association detected"
-        ),
-        "row_totals": dict(row_totals),
-        "column_totals": dict(col_totals),
-        "grand_total": grand_total,
-        "top_contributions": sorted(cell_contributions, key=lambda x: x['contribution'], reverse=True)[:10]
-    }
+        all_results[time_period] = {
+            "chi_square_statistic": round(chi_square, 4),
+            "degrees_of_freedom": degrees_of_freedom,
+            "critical_value_alpha_0.05": round(critical_value, 4),
+            "is_significant": is_significant,
+            "interpretation": (
+                "Significant association between genre and rating"
+                if is_significant else
+                "No significant association detected"
+            ),
+            "row_totals": dict(row_totals),
+            "column_totals": dict(col_totals),
+            "grand_total": grand_total,
+            "top_contributions": sorted(cell_contributions, key=lambda x: x['contribution'], reverse=True)[:10]
+        }
+    
+    return all_results
 
 
 # ============================================================

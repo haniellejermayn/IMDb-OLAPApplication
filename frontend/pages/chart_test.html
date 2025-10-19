@@ -206,12 +206,12 @@
             <h3>R1: Genre-Rating Association</h3>
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="required">Time Granularity</label>
+                    <label>Time Granularity</label>
                     <select id="r1_time_granularity">
-                        <option value="">Select</option>
-                        <option value="year">Year</option>
-                        <option value="decade">Decade</option>
+                        <option value="">All Time (No Grouping)</option>
                         <option value="era">Era</option>
+                        <option value="decade">Decade</option>
+                        <option value="year">Year</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -250,12 +250,6 @@
             </div>
             <button class="submit-btn" onclick="fetchR1Data()">Fetch R1 Data</button>
         </div>
-        
-        <!-- Chi-Square Results Display -->
-        <div id="chiSquareResults" class="hidden" style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #ffc107;">
-            <h3 style="color: #856404; margin-bottom: 15px;">📊 Chi-Square Analysis Results</h3>
-            <div id="chiSquareContent"></div>
-        </div>
 
         <!-- R2 Form -->
         <div id="formR2" class="form-container hidden">
@@ -265,9 +259,9 @@
                     <label class="required">Time Granularity</label>
                     <select id="r2_time_granularity">
                         <option value="">Select</option>
-                        <option value="year">Year</option>
-                        <option value="decade">Decade</option>
                         <option value="era">Era</option>
+                        <option value="decade">Decade</option>
+                        <option value="year">Year</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -544,11 +538,6 @@
                 time_granularity: document.getElementById('r1_time_granularity').value
             };
 
-            if (!payload.time_granularity) {
-                showStatus('Time Granularity is required for R1!', true);
-                return;
-            }
-
             // Optional filters
             const genres = parseArray(document.getElementById('r1_genres').value);
             if (genres) payload.genres = genres;
@@ -769,9 +758,9 @@
                     renderChart(result.data, reportType);
                     
                     // Display chi-square results if present (R1 report)
-                    if (result.chi_square_analysis) {
-                        displayChiSquareResults(result.chi_square_analysis);
-                    } else {
+                    if (result.chi_square_by_period) {
+                        displayChiSquareResults(result.chi_square_by_period);
+                    }else {
                         // Hide chi-square section if not present
                         document.getElementById('chiSquareResults').classList.add('hidden');
                     }
@@ -785,94 +774,147 @@
         }
 
         // Display Chi-Square Analysis Results
-        function displayChiSquareResults(chiData) {
-            const container = document.getElementById('chiSquareResults');
-            const content = document.getElementById('chiSquareContent');
-            
-            if (!chiData || chiData.error) {
-                container.classList.add('hidden');
+        function displayChiSquareResults(chiDataByPeriod) {
+            if (!chiDataByPeriod || Object.keys(chiDataByPeriod).length === 0) {
                 return;
             }
             
-            let html = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-                        <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Chi-Square Statistic</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.chi_square_statistic}</div>
-                    </div>
-                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-                        <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Degrees of Freedom</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.degrees_of_freedom}</div>
-                    </div>
-                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-                        <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Critical Value (α=0.05)</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData['critical_value_alpha_0.05']}</div>
-                    </div>
-                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-                        <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Significance</div>
-                        <div style="font-size: 18px; font-weight: bold; color: ${chiData.is_significant ? '#28a745' : '#dc3545'};">
-                            ${chiData.is_significant ? '✓ Significant' : '✗ Not Significant'}
-                        </div>
-                    </div>
-                </div>
-                
-                <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #ffc107;">
-                    <div style="font-weight: bold; margin-bottom: 8px; color: #856404;">Interpretation:</div>
-                    <div style="color: #333;">${chiData.interpretation}</div>
-                </div>
-                
-                <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #ffc107;">
-                    <div style="font-weight: bold; margin-bottom: 8px; color: #856404;">Summary Statistics:</div>
-                    <div style="color: #333;">
-                        <strong>Grand Total:</strong> ${chiData.grand_total.toLocaleString()} observations<br>
-                    </div>
-                </div>
-            `;
+            // Sort time periods
+            const sortedPeriods = Object.keys(chiDataByPeriod).sort((a, b) => {
+                if (a === "All Time") return -1;
+                if (b === "All Time") return 1;
+                return b - a;
+            });
             
-            // Top contributions table
-            if (chiData.top_contributions && chiData.top_contributions.length > 0) {
-                html += `
-                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-                        <div style="font-weight: bold; margin-bottom: 10px; color: #856404;">Top 10 Cell Contributions to Chi-Square:</div>
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                                <thead>
-                                    <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                                        <th style="padding: 8px; text-align: left;">Genre</th>
-                                        <th style="padding: 8px; text-align: left;">Rating Bin</th>
-                                        <th style="padding: 8px; text-align: right;">Observed</th>
-                                        <th style="padding: 8px; text-align: right;">Expected</th>
-                                        <th style="padding: 8px; text-align: right;">Contribution</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                `;
+            // Embed chi-square results in each contingency table
+            sortedPeriods.forEach((period) => {
+                const safeId = String(period).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+                const chiData = chiDataByPeriod[period];
+                const container = document.getElementById(`chi_content_${safeId}`);
                 
-                chiData.top_contributions.forEach((contrib, idx) => {
-                    html += `
-                        <tr style="border-bottom: 1px solid #dee2e6; ${idx % 2 === 0 ? 'background: #f8f9fa;' : ''}">
-                            <td style="padding: 8px;">${contrib.genre}</td>
-                            <td style="padding: 8px;">${contrib.rating_bin}</td>
-                            <td style="padding: 8px; text-align: right;">${contrib.observed}</td>
-                            <td style="padding: 8px; text-align: right;">${contrib.expected}</td>
-                            <td style="padding: 8px; text-align: right; font-weight: bold; color: ${contrib.contribution > 10 ? '#dc3545' : '#333'};">${contrib.contribution}</td>
-                        </tr>
+                if (!container) return;
+                
+                let html = '';
+                
+                if (chiData.error) {
+                    html = `
+                        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 2px solid #ffc107;">
+                            <h4 style="color: #856404; margin-bottom: 10px;">⚠️ Chi-Square Test</h4>
+                            <div style="background: #f8d7da; padding: 15px; border-radius: 6px; border: 1px solid #f5c6cb; color: #721c24;">
+                                <strong>Unable to compute:</strong> ${chiData.error}
+                            </div>
+                        </div>
                     `;
-                });
+                } else {
+                    html = `
+                        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 2px solid #ffc107;">
+                            <h4 style="color: #856404; margin-bottom: 15px;">📈 Chi-Square Test Results</h4>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                                <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                                    <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Chi-Square Statistic</div>
+                                    <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.chi_square_statistic}</div>
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                                    <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Degrees of Freedom</div>
+                                    <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.degrees_of_freedom}</div>
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                                    <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Critical Value (α=0.05)</div>
+                                    <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData["critical_value_alpha_0.05"]}</div>
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                                    <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Result</div>
+                                    <div style="font-size: 18px; font-weight: bold; color: ${chiData.is_significant ? '#28a745' : '#dc3545'};">
+                                        ${chiData.is_significant ? '✓ Significant' : '✗ Not Significant'}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
+                                <div style="font-weight: bold; margin-bottom: 8px; color: #856404;">Interpretation:</div>
+                                <div style="color: #333;">${chiData.interpretation}</div>
+                            </div>
+                    `;
+                    
+                    // Top contributions table
+                    if (chiData.top_contributions && chiData.top_contributions.length > 0) {
+                        html += `
+                            <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                                <div style="font-weight: bold; margin-bottom: 10px; color: #856404;">Top Cell Contributions:</div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                        <thead>
+                                            <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                                <th style="padding: 8px; text-align: left;">Genre</th>
+                                                <th style="padding: 8px; text-align: left;">Rating</th>
+                                                <th style="padding: 8px; text-align: right;">Observed</th>
+                                                <th style="padding: 8px; text-align: right;">Expected</th>
+                                                <th style="padding: 8px; text-align: right;">Contribution</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                        `;
+                        
+                        chiData.top_contributions.forEach((contrib, idx) => {
+                            html += `
+                                <tr style="border-bottom: 1px solid #dee2e6; ${idx % 2 === 0 ? 'background: #fafafa;' : 'background: white;'}">
+                                    <td style="padding: 8px;">${contrib.genre}</td>
+                                    <td style="padding: 8px;">${contrib.rating_bin}</td>
+                                    <td style="padding: 8px; text-align: right;">${contrib.observed}</td>
+                                    <td style="padding: 8px; text-align: right;">${contrib.expected}</td>
+                                    <td style="padding: 8px; text-align: right; font-weight: bold; color: ${contrib.contribution > 10 ? '#dc3545' : '#333'};">${contrib.contribution}</td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div style="margin-top: 10px; font-size: 11px; color: #666;">
+                                    <em>Higher contributions indicate larger deviations from expected values.</em>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    html += `</div>`; // Close yellow container
+                }
                 
-                html += `
-                                </tbody>
-                            </table>
-                        </div>
-                        <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                            <em>Note: Higher contribution values indicate cells that deviate most from expected values under independence.</em>
-                        </div>
-                    </div>
-                `;
+                container.innerHTML = html;
+            });
+        }
+
+        // Function to switch between chi-square periods
+        function showChiPeriod(safeId, displayPeriod) {
+            // Hide all period containers
+            const containers = document.querySelectorAll('.chi-period-content');
+            containers.forEach(container => {
+                container.style.display = 'none';
+            });
+            
+            // Show selected period
+            const selectedContainer = document.getElementById(`chi_period_${safeId}`);
+            if (selectedContainer) {
+                selectedContainer.style.display = 'block';
             }
             
-            content.innerHTML = html;
-            container.classList.remove('hidden');
+            // Update tab styles
+            const tabs = document.querySelectorAll('.chi-period-tab');
+            tabs.forEach(tab => {
+                tab.style.background = '#fff3cd';
+                tab.style.color = '#856404';
+                tab.classList.remove('active');
+            });
+            
+            // Highlight active tab
+            const activeTab = document.getElementById(`chi_tab_${safeId}`);
+            if (activeTab) {
+                activeTab.style.background = '#ffc107';
+                activeTab.style.color = 'white';
+                activeTab.classList.add('active');
+            }
         }
 
         // Sample data generators (for testing)
@@ -1175,11 +1217,16 @@
             }
         }
 
-        // R1: Genre-Rating Association - Contingency Table + Heatmap
+        // R1: Genre-Rating Association - Contingency Tables with Dropdown Selector
         function renderR1Chart(ctx, results) {
             const chartContainer = document.getElementById('chartContainer');
             
-            const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
+            const timePeriods = [...new Set(results.map(r => r.time_period))].sort((a, b) => {
+                // Handle "All Time" string
+                if (a === "All Time") return -1;
+                if (b === "All Time") return 1;
+                return b - a; // Descending for years/decades
+            });
             const genres = [...new Set(results.map(r => r.genre))].sort();
             const ratingBins = ['Very Low', 'Low', 'Mid', 'High', 'Very High'];
             
@@ -1202,38 +1249,75 @@
                 }
             });
             
-            // Show contingency tables by time period
+            // Store contingency data globally
+            window.r1ContingencyData = {
+                timePeriods,
+                genres,
+                ratingBins,
+                contingencyData
+            };
+            
+            // Build the HTML with dropdown
             let html = `
                 <div style="padding: 20px;">
                     <h3 style="margin: 0 0 10px 0; color: #333;">R1: Genre-Rating Association Analysis</h3>
                     <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
-                        Observed frequencies for chi-square contingency table analysis
+                        Observed frequencies and chi-square test results for contingency table analysis
                     </p>
+                    
+                    <!-- Period Dropdown Selector -->
+                    <div style="margin-bottom: 25px;">
+                        <label for="r1_period_selector" style="font-weight: 600; margin-right: 10px; color: #667eea;">
+                            Select Time Period:
+                        </label>
+                        <select 
+                            id="r1_period_selector" 
+                            onchange="showR1PeriodFromDropdown()"
+                            style="padding: 10px 15px; border: 2px solid #667eea; border-radius: 6px; 
+                                font-size: 14px; font-weight: 600; cursor: pointer; min-width: 200px;
+                                background: white; color: #667eea;">
+            `;
+            
+            timePeriods.forEach((period, idx) => {
+                const safeId = String(period).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+                html += `<option value="${safeId}" data-period="${period}">${period}</option>`;
+            });
+            
+            html += `
+                        </select>
+                    </div>
+                    
+                    <!-- Period Content Containers -->
+                    <div id="r1_period_containers">
             `;
             
             // Generate contingency table for each time period
             timePeriods.forEach((period, periodIdx) => {
+                const safeId = String(period).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+                
                 html += `
-                    <div style="margin-bottom: 30px; ${periodIdx > 0 ? 'page-break-before: always;' : ''}">
-                        <h4 style="margin: 0 0 15px 0; color: #667eea; font-size: 16px;">
-                            Time Period: ${period}
-                        </h4>
-                        <div style="overflow-x: auto;">
-                            <table style="border-collapse: collapse; font-size: 13px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                <thead>
-                                    <tr style="background: #667eea; color: white;">
-                                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Genre</th>
+                    <div id="r1_period_${safeId}" class="r1-period-content" style="display: ${periodIdx === 0 ? 'block' : 'none'};">
+                        <!-- Contingency Table -->
+                        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 25px;">
+                            <h4 style="margin: 0 0 15px 0; color: #667eea; font-size: 18px;">
+                                📊 Contingency Table: ${period}
+                            </h4>
+                            <div style="overflow-x: auto;">
+                                <table style="border-collapse: collapse; font-size: 13px; width: 100%;">
+                                    <thead>
+                                        <tr style="background: #667eea; color: white;">
+                                            <th style="padding: 12px; text-align: left; border: 1px solid #ddd; position: sticky; left: 0; background: #667eea; z-index: 10;">Genre</th>
                 `;
                 
                 ratingBins.forEach(bin => {
-                    html += `<th style="padding: 10px; text-align: center; border: 1px solid #ddd;">${bin}</th>`;
+                    html += `<th style="padding: 12px; text-align: center; border: 1px solid #ddd;">${bin}</th>`;
                 });
                 
                 html += `
-                                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd; background: #5568d3;">Row Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                                            <th style="padding: 12px; text-align: center; border: 1px solid #ddd; background: #5568d3;">Row Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
                 `;
                 
                 let columnTotals = {};
@@ -1242,7 +1326,7 @@
                 
                 genres.forEach((genre, idx) => {
                     html += `<tr style="${idx % 2 === 0 ? 'background: #fafafa;' : 'background: white;'}">`;
-                    html += `<td style="padding: 10px; font-weight: 600; border: 1px solid #ddd;">${genre}</td>`;
+                    html += `<td style="padding: 12px; font-weight: 600; border: 1px solid #ddd; position: sticky; left: 0; background: ${idx % 2 === 0 ? '#fafafa' : 'white'}; z-index: 5;">${genre}</td>`;
                     
                     let rowTotal = 0;
                     ratingBins.forEach(bin => {
@@ -1251,38 +1335,61 @@
                         columnTotals[bin] += count;
                         grandTotal += count;
                         
-                        html += `<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${count.toLocaleString()}</td>`;
+                        html += `<td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${count.toLocaleString()}</td>`;
                     });
                     
-                    html += `<td style="padding: 10px; text-align: center; border: 1px solid #ddd; background: #f0f0f0; font-weight: 600;">${rowTotal.toLocaleString()}</td>`;
+                    html += `<td style="padding: 12px; text-align: center; border: 1px solid #ddd; background: #f0f0f0; font-weight: 600;">${rowTotal.toLocaleString()}</td>`;
                     html += `</tr>`;
                 });
                 
                 // Column totals row
                 html += `
-                                    <tr style="background: #e8eaf6; font-weight: 600;">
-                                        <td style="padding: 10px; border: 1px solid #ddd;">Column Total</td>
+                                        <tr style="background: #e8eaf6; font-weight: 600;">
+                                            <td style="padding: 12px; border: 1px solid #ddd; position: sticky; left: 0; background: #e8eaf6; z-index: 5;">Column Total</td>
                 `;
                 
                 ratingBins.forEach(bin => {
-                    html += `<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${columnTotals[bin].toLocaleString()}</td>`;
+                    html += `<td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${columnTotals[bin].toLocaleString()}</td>`;
                 });
                 
                 html += `
-                                        <td style="padding: 10px; text-align: center; border: 1px solid #ddd; background: #667eea; color: white;">${grandTotal.toLocaleString()}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                            <td style="padding: 12px; text-align: center; border: 1px solid #ddd; background: #667eea; color: white;">${grandTotal.toLocaleString()}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+                        
+                        <!-- Chi-Square Results Placeholder (will be filled by displayChiSquareResults) -->
+                        <div id="chi_content_${safeId}"></div>
                     </div>
                 `;
             });
             
             html += `
+                    </div>
                 </div>
             `;
             
             chartContainer.innerHTML = html;
+        }
+
+        // Function to switch periods from dropdown
+        function showR1PeriodFromDropdown() {
+            const selector = document.getElementById('r1_period_selector');
+            const safeId = selector.value;
+            
+            // Hide all period containers
+            const containers = document.querySelectorAll('.r1-period-content');
+            containers.forEach(container => {
+                container.style.display = 'none';
+            });
+            
+            // Show selected period
+            const selectedContainer = document.getElementById(`r1_period_${safeId}`);
+            if (selectedContainer) {
+                selectedContainer.style.display = 'block';
+            }
         }
 
         // R2: Runtime Trends Chart
