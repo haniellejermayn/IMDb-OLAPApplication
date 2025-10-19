@@ -12,17 +12,26 @@ olap_bp = Blueprint('olap', __name__)
 def get_runtime_trend():
     input_data = request.get_json()
 
-    group_by_time = input_data.get("group_by_time")
-    group_by_genre = input_data.get("group_by_genre")
-    start_year = input_data.get("start_year")
-    end_year = input_data.get("end_year")
-    where_genre = input_data.get("where_genre")
+    print("\n=== 📡 /runtime_trend CALLED ===")
+    print("Received payload:", input_data)
 
-    where_title = input_data.get("where_title")
-    min_rating = input_data.get("min_rating")
-    start_rating = input_data.get("start_rating")
-    end_rating = input_data.get("end_rating")
-    min_votes = input_data.get("min_votes")
+    filters = input_data.get("filters", {})
+    groups = input_data.get("groups", {})
+
+    # Aggregation
+    group_by_time = groups.get("time")
+    group_by_genre = groups.get("genre")
+
+    ## Filters
+    start_year = filters.get("min_year_val")
+    end_year = filters.get("max_year_val")
+    where_genre = filters.get("genre", [])
+
+    where_title = filters.get("title_type")
+    min_rating = filters.get("min_rating")
+    start_rating = filters.get("min_rating_val")
+    end_rating = filters.get("max_rating_val")
+    min_votes = filters.get("min_votes")
 
 
     select_fields = [f"dtm.{group_by_time}", "AVG(dtl.runtimeMinutes) AS avg_runtime", "dtl.titleType"]
@@ -50,9 +59,18 @@ def get_runtime_trend():
         params.append(start_year)
         params.append(end_year)
 
-    if where_genre:
-        where_clause.append("dg.genre = %s")
-        params.append(where_genre)
+    if group_by_genre or (where_genre and isinstance(where_genre, list) and len(where_genre) > 0):
+        from_clause.append("JOIN bridge_title_genre btg ON dtl.tconst = btg.tconst")
+        from_clause.append("JOIN dim_genre dg ON btg.genreKey = dg.genreKey")
+
+    if group_by_genre:
+        select_fields.append("dg.genreName")
+        group_fields.append("dg.genreName")
+
+    if isinstance(where_genre, list) and len(where_genre) > 0:
+        placeholders = ', '.join(['%s'] * len(where_genre))
+        where_clause.append(f"dg.genreName IN ({placeholders})")
+        params.extend(where_genre)
 
     if where_title:
         where_clause.append("dtl.titleType = %s")
@@ -61,7 +79,6 @@ def get_runtime_trend():
     if min_rating:
         where_clause.append("fp.averageRating >= %s")
         params.append(float(min_rating))
-
 
     if min_votes:
         where_clause.append("fp.numVotes >= %s")
@@ -72,18 +89,22 @@ def get_runtime_trend():
         params.append(start_rating)
         params.append(end_rating)
 
-
-
     sql = "SELECT " + ', '.join(select_fields) + " " \
         + ' '.join(from_clause) + " " \
         + "WHERE " + ' AND '.join(where_clause) + " " \
         + "GROUP BY " + ', '.join(group_fields) + " " \
         + "ORDER BY " + ', '.join(group_fields) + " DESC "
-
+    
+    print("\n--- Generated SQL ---")
+    print(sql)
+    print("Parameters: ", params)
+    print("--- ✅ End of SQL Log ---\n")
 
     data = execute_query(sql, tuple(params))
-    return jsonify(data)
 
-
-
-
+    # Return SQL query, parameters, and data
+    return jsonify({
+        "query": sql,
+        "params": params,
+        "results": data
+    }), 200

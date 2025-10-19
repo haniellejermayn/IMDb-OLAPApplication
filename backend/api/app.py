@@ -7,6 +7,7 @@ from routes.reports import reports_bp
 from flask import Flask, send_from_directory
 from config import DB_CONFIG
 import os
+import config
 
 # =========== SET UP ============ #
 
@@ -19,6 +20,7 @@ app = Flask(
     template_folder=os.path.join(BASE_DIR, 'frontend', 'pages')
 )
 CORS(app)  # Enable CORS for frontend
+app.config['DB_CONFIG'] = config.DB_CONFIG
 
 # Load database configuration
 app.config['DB_CONFIG'] = DB_CONFIG
