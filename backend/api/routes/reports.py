@@ -77,10 +77,12 @@ def genre_rating_association():
     Additional params:
     - where: [{"field": "dtl.titleType", "operator": "=", "value": "movie"}]
     - group_by: ["dg.genreName", "rating_bin", "dtm.decade"] (overrides default)
+    - calculate_chi_square: true/false (default: false) - computes chi-square statistic
     """
     try:
         params = request.get_json()
         time_granularity = params.get('time_granularity', 'year')
+        calculate_chi = params.get('calculate_chi_square', False)
         
         query = f"""
         SELECT
@@ -141,10 +143,92 @@ def genre_rating_association():
             query += " ORDER BY dtm.year DESC, dg.genreName"
         
         data = execute_query(query, tuple(params_list))
+        
+        # Calculate chi-square if requested
+        if calculate_chi:
+            chi_results = calculate_chi_square_statistic(data)
+            return jsonify({
+                "status": "success", 
+                "data": data,
+                "chi_square_analysis": chi_results
+            })
+        
         return jsonify({"status": "success", "data": data})
     except Exception as e:
         logger.error(f"Error in genre_rating_association: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
+
+
+def calculate_chi_square_statistic(data):
+    """
+    Calculate chi-square statistic from contingency table data
+    Formula: χ² = Σ((O - E)² / E)
+    where O = observed frequency, E = expected frequency
+    """
+    from collections import defaultdict
+    
+    # Build contingency table
+    contingency = defaultdict(lambda: defaultdict(int))
+    row_totals = defaultdict(int)
+    col_totals = defaultdict(int)
+    grand_total = 0
+    
+    for row in data:
+        genre = row['genre']
+        rating_bin = row['rating_bin']
+        count = row['count']
+        
+        contingency[genre][rating_bin] = count
+        row_totals[genre] += count
+        col_totals[rating_bin] += count
+        grand_total += count
+    
+    if grand_total == 0:
+        return {"error": "No data for chi-square calculation"}
+    
+    # Calculate chi-square statistic
+    chi_square = 0
+    degrees_of_freedom = (len(row_totals) - 1) * (len(col_totals) - 1)
+    
+    cell_contributions = []
+    
+    for genre in contingency:
+        for rating_bin in contingency[genre]:
+            observed = contingency[genre][rating_bin]
+            expected = (row_totals[genre] * col_totals[rating_bin]) / grand_total
+            
+            if expected > 0:
+                contribution = ((observed - expected) ** 2) / expected
+                chi_square += contribution
+                
+                cell_contributions.append({
+                    "genre": genre,
+                    "rating_bin": rating_bin,
+                    "observed": observed,
+                    "expected": round(expected, 2),
+                    "contribution": round(contribution, 4)
+                })
+    
+    # Critical values at α = 0.05 for common df
+    critical_values = {
+        1: 3.841, 2: 5.991, 3: 7.815, 4: 9.488, 5: 11.070,
+        6: 12.592, 8: 15.507, 10: 18.307, 15: 24.996, 20: 31.410
+    }
+    
+    critical_value = critical_values.get(degrees_of_freedom, "See chi-square table")
+    is_significant = chi_square > critical_value if isinstance(critical_value, float) else None
+    
+    return {
+        "chi_square_statistic": round(chi_square, 4),
+        "degrees_of_freedom": degrees_of_freedom,
+        "critical_value_alpha_0.05": critical_value,
+        "is_significant": is_significant,
+        "interpretation": "Significant association between genre and rating" if is_significant else "No significant association detected" if is_significant is False else "Check chi-square table for significance",
+        "row_totals": dict(row_totals),
+        "column_totals": dict(col_totals),
+        "grand_total": grand_total,
+        "top_contributions": sorted(cell_contributions, key=lambda x: x['contribution'], reverse=True)[:10]
+    }
 
 
 # ============================================================
@@ -208,7 +292,11 @@ def runtime_trends():
         group_by_clause = build_group_by_clause(params.get('group_by'), default_groups)
         query += group_by_clause
         
-        query += f" ORDER BY dtm.{time_granularity} DESC"
+        # Dynamic ORDER BY based on grouping
+        if params.get('group_by'):
+            query += f" ORDER BY {params.get('group_by')[0]} DESC"
+        else:
+            query += f" ORDER BY dtm.{time_granularity} DESC"
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data})
@@ -381,6 +469,7 @@ def genre_engagement():
     except Exception as e:
         logger.error(f"Error in genre_engagement: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
+
 
 # ============================================================
 # Report 5: TV Series Engagement Analysis
