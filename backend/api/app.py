@@ -2,7 +2,6 @@
 
 from flask import Flask, jsonify
 from flask_cors import CORS
-from routes.olap import olap_bp
 from routes.reports import reports_bp
 from flask import Flask, send_from_directory
 from config import DB_CONFIG
@@ -26,7 +25,6 @@ app.config['DB_CONFIG'] = config.DB_CONFIG
 app.config['DB_CONFIG'] = DB_CONFIG
 
 # Register blueprints
-app.register_blueprint(olap_bp, url_prefix='/api/olap')
 app.register_blueprint(reports_bp, url_prefix='/api/reports')
 
 # =========== APIs ============ #
