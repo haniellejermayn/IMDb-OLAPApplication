@@ -2,6 +2,12 @@
 
 A dimensional data warehouse implementing star schema for IMDb dataset analysis, featuring ETL pipelines, OLAP operations, and query optimization strategies.
 
+Submitted by:
+* CHUA, Hanielle
+* DAVID Jr., Jose
+* KELSEY, Gabrielle
+* TOLENTINO, Hephzi
+
 ---
 
 ## ⚙️ Setup
@@ -244,16 +250,6 @@ WHERE table_schema='imdb_star_schema';"
 ├── .env                        # Database credentials (gitignored)
 └── README.md
 ```
-
----
-
-## 🎯 Next Steps
-
-1. ✅ Complete ETL pipeline
-2. 🚧 Develop OLAP queries (roll-up, drill-down, slice, dice)
-3. 🚧 Build web dashboard
-4. 🚧 Query optimization & performance testing
-5. 🚧 Technical report
 
 ---
 
