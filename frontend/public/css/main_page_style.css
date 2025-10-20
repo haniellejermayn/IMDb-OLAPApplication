@@ -6,7 +6,7 @@
 body {
      padding: 20px;
      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+     background: linear-gradient(135deg, #40224C 0%, #7B3ADC 100%);
      min-height: 100vh;
 }
 #testContainer {
@@ -18,16 +18,16 @@ body {
      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
 }
 h1 {
-     color: #333;
+     color: #40224C;
      margin-bottom: 10px;
      font-size: 28px;
 }
 h2 {
-     color: #555;
+     color: #40224C;
      margin-top: 25px;
      margin-bottom: 15px;
      font-size: 20px;
-     border-bottom: 2px solid #667eea;
+     border-bottom: 2px solid #7B3ADC;
      padding-bottom: 8px;
 }
 .test-buttons {
@@ -40,7 +40,7 @@ button {
      padding: 12px 24px;
      border: none;
      border-radius: 8px;
-     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+     background: linear-gradient(135deg, #40224C 0%, #7B3ADC 100%);
      color: white;
      cursor: pointer;
      font-size: 14px;
@@ -108,7 +108,7 @@ button:active {
 .form-group input:focus,
 .form-group select:focus {
      outline: none;
-     border-color: #667eea;
+     border-color: #40224C;
 }
 .form-group small {
      color: #777;
@@ -126,20 +126,20 @@ button:active {
 }
 .report-btn {
      padding: 10px 20px;
-     border: 2px solid #667eea;
+     border: 2px solid #7B3ADC;
      background: white;
-     color: #667eea;
+     color: #40224C;
      border-radius: 8px;
      cursor: pointer;
      font-weight: 600;
      transition: all 0.3s;
 }
 .report-btn.active {
-     background: #667eea;
+     background: #40224C;
      color: white;
 }
 .report-btn:hover {
-     background: #667eea;
+     background: #40224C;
      color: white;
 }
 .submit-btn {
