@@ -3,30 +3,16 @@
      <head>
           <title>OLAP Application - CHUA, David Jr., Kelsey, Tolentino</title>
           <link rel="stylesheet" type="text/css" href="public/css/main_page_style.css">
-               <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-               <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-               <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-               <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-               
-               <script src="public/js/main_page_script.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+          <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+          <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+          <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+          <script src="https://cdn.plot.ly/plotly-3.1.0.min.js" charset="utf-8"></script>
+          <script src="public/js/main_page_script.js"></script>
      </head>
      <body>
           <div id="testContainer">
-               <!--<h1>Chart Test Page</h1>
-               
-               <div class="info">
-                    <strong>Quick Test:</strong> Use the buttons below to test charts with sample data, or select a report and fill in parameters to fetch real data from your backend.
-               </div>
-
-               <div class="test-buttons">
-                    <button onclick="testR1Chart()">Test R1 (Sample)</button>
-                    <button onclick="testR2Chart()">Test R2 (Sample)</button>
-                    <button onclick="testR3Chart()">Test R3 (Sample)</button>
-                    <button onclick="testR4Chart()">Test R4 (Sample)</button>
-                    <button onclick="testR5Chart()">Test R5 (Sample)</button>
-               </div>-->
-
                <h2>Perform OLAP</h2>
                
                <div class="report-selector">
@@ -42,12 +28,12 @@
                     <h3>R1: Genre-Rating Association</h3>
                     <div class="form-grid">
                          <div class="form-group">
-                              <label class="required">Time Granularity</label>
+                              <label>Time Granularity</label>
                               <select id="r1_time_granularity">
-                              <option value="">Select</option>
-                              <option value="year">Year</option>
-                              <option value="decade">Decade</option>
+                              <option value="">All Time (No Grouping)</option>
                               <option value="era">Era</option>
+                              <option value="decade">Decade</option>
+                              <option value="year">Year</option>
                               </select>
                          </div>
                          <div class="form-group">
@@ -58,6 +44,7 @@
                          <div class="form-group">
                               <label>Title Types (comma-separated)</label>
                               <input type="text" id="r1_title_types" placeholder="movie,tvSeries">
+                              <small>Leave empty for all title types</small>
                          </div>
                          <div class="form-group">
                               <label>Start Year</label>
@@ -83,22 +70,8 @@
                               <label>Runtime Max (minutes)</label>
                               <input type="number" id="r1_runtime_max" placeholder="180">
                          </div>
-                         <div class="form-group">
-                              <label>Calculate Chi-Square</label>
-                              <select id="r1_calculate_chi_square">
-                              <option value="false">No</option>
-                              <option value="true">Yes</option>
-                              </select>
-                              <small>Compute chi-square statistic for genre-rating association</small>
-                         </div>
                     </div>
                     <button class="submit-btn" onclick="fetchR1Data()">Fetch R1 Data</button>
-               </div>
-               
-               <!-- Chi-Square Results Display -->
-               <div id="chiSquareResults" class="hidden" style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #ffc107;">
-                    <h3 style="color: #856404; margin-bottom: 15px;">📊 Chi-Square Analysis Results</h3>
-                    <div id="chiSquareContent"></div>
                </div>
 
                <!-- R2 Form -->
@@ -109,18 +82,20 @@
                               <label class="required">Time Granularity</label>
                               <select id="r2_time_granularity">
                               <option value="">Select</option>
-                              <option value="year">Year</option>
-                              <option value="decade">Decade</option>
                               <option value="era">Era</option>
+                              <option value="decade">Decade</option>
+                              <option value="year">Year</option>
                               </select>
                          </div>
                          <div class="form-group">
                               <label>Genres (comma-separated)</label>
                               <input type="text" id="r2_genres" placeholder="Action,Drama">
+                              <small>Leave empty for all genres</small>
                          </div>
                          <div class="form-group">
                               <label>Title Types (comma-separated)</label>
                               <input type="text" id="r2_title_types" placeholder="movie,tvSeries">
+                              <small>Leave empty for all title types</small>
                          </div>
                          <div class="form-group">
                               <label>Start Year</label>
@@ -187,10 +162,12 @@
                          <div class="form-group">
                               <label>Genres (comma-separated)</label>
                               <input type="text" id="r3_genres" placeholder="Action,Drama">
+                              <small>Leave empty for all genres</small>
                          </div>
                          <div class="form-group">
                               <label>Title Types (comma-separated)</label>
                               <input type="text" id="r3_title_types" placeholder="movie,tvSeries">
+                              <small>Leave empty for all title types</small>
                          </div>
                          <div class="form-group">
                               <label>Start Year</label>
@@ -234,10 +211,12 @@
                          <div class="form-group">
                               <label>Genres (comma-separated)</label>
                               <input type="text" id="r4_genres" placeholder="Action,Drama">
+                              <small>Leave empty for all genres</small>
                          </div>
                          <div class="form-group">
                               <label>Title Types (comma-separated)</label>
                               <input type="text" id="r4_title_types" placeholder="movie,tvSeries">
+                              <small>Leave empty for all title types</small>
                          </div>
                          <div class="form-group">
                               <label>Start Year</label>
@@ -290,10 +269,12 @@
                          <div class="form-group">
                               <label>Genres (comma-separated)</label>
                               <input type="text" id="r5_genres" placeholder="Action,Drama">
+                              <small>Leave empty for all genres</small>
                          </div>
                          <div class="form-group">
-                              <label>Title Types (comma-separated)</label>
+                              <label>Parent Title Types (comma-separated)</label>
                               <input type="text" id="r5_title_types" placeholder="tvSeries,tvMiniSeries">
+                              <small>Leave empty for tvSeries and tvMiniSeries</small>
                          </div>
                          <div class="form-group">
                               <label>Start Year</label>
@@ -339,6 +320,7 @@
                </div>
 
                <div id="resultsTableContainer">
+                    Raw Table:
                     <table id="resultsTable" class="display" style="width:100%">
                          <thead>
                               <tr id="resultsHeader"></tr>

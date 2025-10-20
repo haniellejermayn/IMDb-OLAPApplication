@@ -1,6 +1,7 @@
 from scipy.stats import chi2
 from flask import Blueprint, request, jsonify
 from database import execute_query
+from collections import defaultdict
 import logging
 
 reports_bp = Blueprint('reports', __name__)
@@ -173,12 +174,14 @@ def needs_join(params, group_by_flag, filter_keys):
 
 
 # ============================================================
-# Report 1: Genre-Rating Association
+# Report 1: Genre-Rating Association 
 # ============================================================
+
 @reports_bp.route("/r1", methods=["POST"])
 def genre_rating_association():
     """
     Chi-square analysis: Genre vs Rating Bins
+    Returns both observed and expected frequencies
     
     Required Inputs:
     - time_granularity: "year" | "decade" | "era" (REQUIRED)
@@ -204,11 +207,14 @@ def genre_rating_association():
         time_granularity = params.get('time_granularity')
         
         # Validate required time_granularity
-        validation_error = validate_time_granularity(time_granularity, required=True)
-        if validation_error:
-            return jsonify({"status": "error", "message": validation_error["error"]}), 400
+        if time_granularity:
+            validation_error = validate_time_granularity(time_granularity, required=False)
+            if validation_error:
+                return jsonify({"status": "error", "message": validation_error["error"]}), 400
         
         calculate_chi = params.get('calculate_chi_square', False)
+        
+        time_field = f"dtm.{time_granularity}" if time_granularity else "'All Time'"
         
         query = f"""
         SELECT
@@ -220,7 +226,7 @@ def genre_rating_association():
                 WHEN fp.averageRating < 8 THEN 'High'
                 ELSE 'Very High'
             END AS rating_bin,
-            dtm.{time_granularity} AS time_period,
+            {time_field} AS time_period,
             COUNT(*) AS count
         FROM fact_title_performance fp
         JOIN dim_title dtl ON fp.tconst = dtl.tconst
@@ -247,95 +253,187 @@ def genre_rating_association():
         query += where_clause
         
         # Dynamic GROUP BY
-        default_groups = ["dg.genreName", "rating_bin", f"dtm.{time_granularity}"]
+        default_groups = ["dg.genreName", "rating_bin"]
+        if time_granularity:
+            default_groups.append(f"dtm.{time_granularity}")
+        else:
+            default_groups.append("time_period")
         group_by_clause = build_group_by_clause(params.get('group_by'), default_groups)
         query += group_by_clause
         
         # ORDER BY - use aliased columns
         query += " ORDER BY time_period DESC, genre, rating_bin"
         
-        data = execute_query(query, tuple(params_list))
+        raw_data = execute_query(query, tuple(params_list))
         
-        # Calculate chi-square if requested
+        # Calculate expected frequencies and add to each row
+        contingency_data = calculate_contingency_with_expected(raw_data)
+        
         if calculate_chi:
-            chi_results = calculate_chi_square_statistic(data)
+            chi_results = calculate_chi_square_statistic(raw_data)
             return jsonify({
                 "status": "success", 
-                "data": data,
+                "data": contingency_data,
                 "chi_square_analysis": chi_results,
                 "query": query,
                 "params": params_list
             })
         
-        return jsonify({"status": "success", "data": data, "query": query, "params": params_list})
+        return jsonify({"status": "success", "data": contingency_data, "query": query, "params": params_list})
     except Exception as e:
         logger.error(f"Error in genre_rating_association: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
-def calculate_chi_square_statistic(data, alpha=0.05):
-    """Calculate chi-square statistic from contingency table data dynamically"""
-    from collections import defaultdict
-    
-    contingency = defaultdict(lambda: defaultdict(int))
-    row_totals = defaultdict(int)
-    col_totals = defaultdict(int)
-    grand_total = 0
-    
+def calculate_contingency_with_expected(data):
+    """
+    Add expected frequencies to contingency table data
+    Returns data with observed and expected frequencies for each cell
+    """
+    # Group data by time period
+    time_period_data = defaultdict(list)
     for row in data:
-        genre = row['genre']
-        rating_bin = row['rating_bin']
-        count = row['count']
+        time_period_data[row['time_period']].append(row)
+    
+    # Process each time period
+    result = []
+    
+    for time_period, period_data in time_period_data.items():
+        # Build contingency table for this period
+        contingency = defaultdict(lambda: defaultdict(int))
+        row_totals = defaultdict(int)
+        col_totals = defaultdict(int)
+        grand_total = 0
         
-        contingency[genre][rating_bin] = count
-        row_totals[genre] += count
-        col_totals[rating_bin] += count
-        grand_total += count
-    
-    if grand_total == 0:
-        return {"error": "No data for chi-square calculation"}
-    
-    chi_square = 0
-    degrees_of_freedom = (len(row_totals) - 1) * (len(col_totals) - 1)
-    cell_contributions = []
-    
-    for genre in contingency:
-        for rating_bin in contingency[genre]:
-            observed = contingency[genre][rating_bin]
+        # Collect observed frequencies
+        for row in period_data:
+            genre = row['genre']
+            rating_bin = row['rating_bin']
+            count = row['count']
+            
+            contingency[genre][rating_bin] = count
+            row_totals[genre] += count
+            col_totals[rating_bin] += count
+            grand_total += count
+        
+        if grand_total == 0:
+            continue
+        
+        # Calculate expected frequencies and build output rows
+        for row in period_data:
+            genre = row['genre']
+            rating_bin = row['rating_bin']
+            observed = row['count']
+            
+            # Calculate expected frequency
             expected = (row_totals[genre] * col_totals[rating_bin]) / grand_total
             
-            if expected > 0:
-                contribution = ((observed - expected) ** 2) / expected
-                chi_square += contribution
-                
-                cell_contributions.append({
-                    "genre": genre,
-                    "rating_bin": rating_bin,
-                    "observed": observed,
-                    "expected": round(expected, 2),
-                    "contribution": round(contribution, 4)
-                })
+            result.append({
+                'genre': genre,
+                'rating_bin': rating_bin,
+                'time_period': time_period,
+                'observed': observed,
+                'expected': round(expected, 2),
+                'standardized_residual': round((observed - expected) / (expected ** 0.5), 3) if expected > 0 else 0
+            })
     
-    # Compute critical value dynamically using scipy
-    critical_value = chi2.ppf(1 - alpha, degrees_of_freedom)
-    is_significant = chi_square > critical_value
-    
-    return {
-        "chi_square_statistic": round(chi_square, 4),
-        "degrees_of_freedom": degrees_of_freedom,
-        "critical_value_alpha_0.05": round(critical_value, 4),
-        "is_significant": is_significant,
-        "interpretation": (
-            "Significant association between genre and rating"
-            if is_significant else
-            "No significant association detected"
-        ),
-        "row_totals": dict(row_totals),
-        "column_totals": dict(col_totals),
-        "grand_total": grand_total,
-        "top_contributions": sorted(cell_contributions, key=lambda x: x['contribution'], reverse=True)[:10]
-    }
+    return result
 
+
+def calculate_chi_square_statistic(data, alpha=0.05):
+    """Calculate chi-square statistic for each time period separately"""
+    
+    # Group data by time period first
+    time_period_data = defaultdict(list)
+    for row in data:
+        time_period_data[row['time_period']].append(row)
+    
+    all_results = {}
+    
+    # Calculate chi-square for each time period
+    for time_period, period_data in time_period_data.items():
+        contingency = defaultdict(lambda: defaultdict(int))
+        expected_values = defaultdict(lambda: defaultdict(float))
+        row_totals = defaultdict(int)
+        col_totals = defaultdict(int)
+        grand_total = 0
+        
+        # First pass: collect observed frequencies
+        for row in period_data:
+            genre = row['genre']
+            rating_bin = row['rating_bin']
+            count = row['count']
+            
+            contingency[genre][rating_bin] = count
+            row_totals[genre] += count
+            col_totals[rating_bin] += count
+            grand_total += count
+        
+        if grand_total == 0:
+            all_results[time_period] = {"error": "No data for chi-square calculation"}
+            continue
+        
+        # Check if we have enough data for chi-square
+        num_rows = len(row_totals)
+        num_cols = len(col_totals)
+        degrees_of_freedom = (num_rows - 1) * (num_cols - 1)
+        
+        if degrees_of_freedom <= 0:
+            all_results[time_period] = {
+                "error": f"Insufficient data: need at least 2 genres and 2 rating bins (found {num_rows} genres, {num_cols} rating bins)"
+            }
+            continue
+        
+        # Second pass: calculate expected frequencies
+        for genre in contingency:
+            for rating_bin in col_totals.keys():
+                expected = (row_totals[genre] * col_totals[rating_bin]) / grand_total
+                expected_values[genre][rating_bin] = expected
+        
+        # Third pass: calculate chi-square statistic
+        chi_square = 0
+        cell_contributions = []
+        
+        for genre in contingency:
+            for rating_bin in contingency[genre]:
+                observed = contingency[genre][rating_bin]
+                expected = expected_values[genre][rating_bin]
+                
+                if expected > 0:
+                    contribution = ((observed - expected) ** 2) / expected
+                    chi_square += contribution
+                    
+                    cell_contributions.append({
+                        "genre": genre,
+                        "rating_bin": rating_bin,
+                        "observed": observed,
+                        "expected": round(expected, 2),
+                        "contribution": round(contribution, 4)
+                    })
+        
+        # Compute critical value dynamically using scipy
+        critical_value = chi2.ppf(1 - alpha, degrees_of_freedom)
+        is_significant = bool(chi_square > critical_value)
+        all_results[time_period] = {
+            "chi_square_statistic": round(chi_square, 4),
+            "degrees_of_freedom": degrees_of_freedom,
+            "critical_value_alpha_0.05": round(critical_value, 4),
+            "is_significant": is_significant,
+            "interpretation": (
+                "Significant association between genre and rating"
+                if is_significant else
+                "No significant association detected"
+            ),
+            "observed_frequencies": {genre: dict(bins) for genre, bins in contingency.items()},
+            "expected_frequencies": {genre: {bin: round(val, 2) for bin, val in bins.items()} 
+                                    for genre, bins in expected_values.items()},
+            "row_totals": dict(row_totals),
+            "column_totals": dict(col_totals),
+            "grand_total": grand_total,
+            "top_contributions": sorted(cell_contributions, key=lambda x: x['contribution'], reverse=True)[:10]
+        }
+    
+    return all_results
 
 # ============================================================
 # Report 2: Runtime Trends 
@@ -368,7 +466,7 @@ def runtime_trends():
         if validation_error:
             return jsonify({"status": "error", "message": validation_error["error"]}), 400
         
-        # Check if genre filter is needed
+        # Always include genre join since we might need it for filtering
         need_genre_join = params.get('genres') is not None
         
         # Build SELECT - always group by time and titleType
@@ -550,12 +648,34 @@ def person_performance():
         if having_parts:
             query += " HAVING " + " AND ".join(having_parts)
         
-        if group_by_genre or group_by_time:
-            query += " LIMIT 200"
+        # Partition fields for window function
+        partition_by_fields = []
+        if group_by_genre:
+            partition_by_fields.append("dg.genreName")
+        if group_by_time:
+            partition_by_fields.append("time_period")
+
+        # Apply window function if grouping
+        if partition_by_fields:
+            partition_aliases = []
+            if group_by_genre:
+                partition_aliases.append("genreName")
+            if group_by_time:
+                partition_aliases.append("time_period")
+            
+            partition_clause = ", ".join(partition_aliases)
+            
+            query = f"""
+            SELECT * FROM (
+                SELECT *,
+                    ROW_NUMBER() OVER (PARTITION BY {partition_clause} ORDER BY avg_rating DESC) AS rn
+                FROM ({query}) AS subquery
+            ) AS ranked
+            WHERE rn <= 10
+            ORDER BY {partition_clause}, avg_rating DESC
+            """
         else:
             query += " LIMIT 50"
-
-        print(query)
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data, "query": query, "params": params_list})
@@ -589,32 +709,14 @@ def genre_engagement():
     try:
         params = request.get_json()
         
-        # Determine time field based on custom group_by or time_granularity param
         time_granularity = params.get('time_granularity')
         include_time = time_granularity is not None
         
-        # Validate time_granularity if provided
         if time_granularity:
             validation_error = validate_time_granularity(time_granularity, required=False)
             if validation_error:
                 return jsonify({"status": "error", "message": validation_error["error"]}), 400
         
-        if params.get('group_by'):
-            for field in params.get('group_by'):
-                if 'decade' in field.lower():
-                    time_granularity = 'decade'
-                    include_time = True
-                    break
-                elif 'era' in field.lower():
-                    time_granularity = 'era'
-                    include_time = True
-                    break
-                elif 'year' in field.lower() and 'dtm.' in field:
-                    time_granularity = 'year'
-                    include_time = True
-                    break
-        
-        # Build SELECT clause
         select_clause = """
         SELECT
             dg.genreName"""
@@ -646,14 +748,10 @@ def genre_engagement():
             'dim_time': 'dtm'
         }
         
-        # Apply common filters
         query = apply_common_filters(query, params, params_list, table_aliases)
-        
-        # Dynamic WHERE clause
         where_clause = build_where_clause(params.get('where'), params_list, table_aliases)
         query += where_clause
         
-        # Dynamic GROUP BY
         default_groups = ["dg.genreName"]
         if include_time:
             default_groups.append(f"dtm.{time_granularity}")
@@ -661,18 +759,25 @@ def genre_engagement():
         group_by_clause = build_group_by_clause(params.get('group_by'), default_groups)
         query += group_by_clause
         
-        # ORDER BY - use aliased columns
+        # Apply window function ONLY if time grouping is enabled
         if include_time:
-            query += " ORDER BY time_period DESC, total_votes DESC LIMIT 200"
+            query = f"""
+            SELECT * FROM (
+                SELECT *,
+                    ROW_NUMBER() OVER (PARTITION BY time_period ORDER BY total_votes DESC) AS rn
+                FROM ({query}) AS subquery
+            ) AS ranked
+            WHERE rn <= 10
+            ORDER BY time_period DESC, total_votes DESC
+            """
         else:
-            query += " ORDER BY total_votes DESC LIMIT 10"
+            query += " ORDER BY total_votes DESC LIMIT 30"
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data, "query": query, "params": params_list})
     except Exception as e:
         logger.error(f"Error in genre_engagement: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 400
-
 
 # ============================================================
 # Report 5: TV Series Engagement Analysis
@@ -899,6 +1004,13 @@ def tv_engagement():
         where_clause = build_where_clause(params.get('where'), params_list, table_aliases)
         query += where_clause
         
+        # Determine partition fields EARLY (before GROUP BY)
+        partition_by_fields = []
+        if group_by_genre:
+            partition_by_fields.append("dg.genreName")
+        if group_by_time:
+            partition_by_fields.append("time_period")
+        
         # Dynamic GROUP BY
         if tv_level in ['series', 'season']:
             if group_by_genre:
@@ -910,7 +1022,6 @@ def tv_engagement():
             if params.get('group_by'):
                 custom_groups = []
                 for field in params.get('group_by'):
-                    # Replace dtm.decade/year/era with time_period alias if present
                     if field in [f'dtm.{time_granularity}', 'dtm.decade', 'dtm.year', 'dtm.era']:
                         custom_groups.append('time_period')
                     else:
@@ -924,7 +1035,6 @@ def tv_engagement():
             # Episode level with custom grouping
             custom_groups = []
             for field in params.get('group_by'):
-                # Replace dtm.decade/year/era with time_period alias if present
                 if field in [f'dtm.{time_granularity}', 'dtm.decade', 'dtm.year', 'dtm.era']:
                     custom_groups.append('time_period')
                 else:
@@ -932,8 +1042,20 @@ def tv_engagement():
             group_by_clause = build_group_by_clause(custom_groups, None)
             query += group_by_clause
         
-        if group_by_genre or group_by_time:
-            query += " ORDER BY total_votes DESC LIMIT 200"
+        # Window function for top 10 per group
+        if partition_by_fields:
+            partition_clause = ", ".join(partition_by_fields)
+            
+            # Wrap query with window function to get top 10 per group
+            query = f"""
+            SELECT * FROM (
+                SELECT *,
+                    ROW_NUMBER() OVER (PARTITION BY {partition_clause} ORDER BY total_votes DESC) AS rn
+                FROM ({query}) AS subquery
+            ) AS ranked
+            WHERE rn <= 10
+            ORDER BY {partition_clause}, total_votes DESC
+            """
         else:
             query += " ORDER BY total_votes DESC LIMIT 10"
         

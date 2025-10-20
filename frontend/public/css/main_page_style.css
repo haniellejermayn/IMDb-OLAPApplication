@@ -65,7 +65,7 @@ button:active {
 }
 #chartContainer {
      position: relative;
-     height: 500px;
+     min-height: 500px;
      margin-top: 20px;
      padding: 20px;
      background: #fafafa;
@@ -166,8 +166,14 @@ button:active {
      color: #721c24;
      border: 1px solid #f5c6cb;
 }
+
+/* ------------- */
+
 #resultsTableContainer {
      margin-top: 15px;
+     background: #f2f2f2;
+     border-radius: 6px;
+     padding: 10px;
 }
 #resultsTable {
     font-size: 13px;             

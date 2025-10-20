@@ -4,17 +4,6 @@ let currentReport = null;
 // Report selection
 function selectReport(report) {
      currentReport = report;
-
-     if (report == "R1") 
-          testR1Chart()
-     else if (report == "R2") 
-          testR2Chart()
-     else if (report == "R3") 
-          testR3Chart()
-     else if (report == "R4") 
-          testR4Chart()
-     else if (report == "R5") 
-          testR5Chart()
      
      // Hide all forms
      document.querySelectorAll('.form-container').forEach(form => {
@@ -25,16 +14,30 @@ function selectReport(report) {
      document.querySelectorAll('.report-btn').forEach(btn => {
           btn.classList.remove('active');
      });
-     event.target.classList.add('active');
+     
+     // Find and activate the clicked button
+     const clickedButton = document.querySelector(`[onclick="selectReport('${report}')"]`);
+     if (clickedButton) {
+          clickedButton.classList.add('active');
+     }
      
      // Show selected form
-     document.getElementById(`form${report}`).classList.remove('hidden');
+     const formElement = document.getElementById(`form${report}`);
+     if (formElement) {
+          formElement.classList.remove('hidden');
+     }
      
      // Hide status message
-     document.getElementById('statusMessage').classList.add('hidden');
+     const statusElement = document.getElementById('statusMessage');
+     if (statusElement) {
+          statusElement.classList.add('hidden');
+     }
      
      // Hide chi-square results when switching reports
-     document.getElementById('chiSquareResults').classList.add('hidden');
+     const chiSquareEl = document.getElementById('chiSquareResults');
+     if (chiSquareEl) {
+          chiSquareEl.classList.add('hidden');
+     }
 }
 
 // Helper function to show status messages
@@ -56,11 +59,6 @@ async function fetchR1Data() {
      const payload = {
           time_granularity: document.getElementById('r1_time_granularity').value
      };
-
-     if (!payload.time_granularity) {
-          showStatus('Time Granularity is required for R1!', true);
-          return;
-     }
 
      // Optional filters
      const genres = parseArray(document.getElementById('r1_genres').value);
@@ -87,8 +85,8 @@ async function fetchR1Data() {
      const runtimeMax = document.getElementById('r1_runtime_max').value;
      if (runtimeMax) payload.runtime_max = parseInt(runtimeMax);
 
-     const calculateChi = document.getElementById('r1_calculate_chi_square').value;
-     if (calculateChi === 'true') payload.calculate_chi_square = true;
+     // Always calculate chi-square for R1
+     payload.calculate_chi_square = true;
 
      await fetchData('/api/reports/r1', payload, 'R1');
 }
@@ -269,39 +267,47 @@ async function fetchData(endpoint, payload, reportType) {
           console.log(`Sending request to ${endpoint}:`, payload);
 
           const response = await fetch(endpoint, {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify(payload)
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
           });
 
           const result = await response.json();
           console.log('Response:', result);
 
           if (result.status === 'success' && result.data) {
-               showStatus(`✓ Successfully fetched ${result.data.length} rows`, false);
-
-               // Render charts and table
+          showStatus(`✓ Successfully fetched ${result.data.length} rows`, false);
+          
+          try {
                renderChart(result.data, reportType);
-               renderTable(result.data);
+               renderTable(result.data)
 
-               // Show query and parameter generated
                document.getElementById("queryBox").innerHTML = 
                     `SQL Query Generated:<pre><code>${result.query || "No query returned"}</code></pre>`;
 
                document.getElementById("paramsBox").innerHTML = 
                     `Parameters:<pre><code>${JSON.stringify(result.params || [], null, 2)}</code></pre>`;
-
-               
-               // Display chi-square results if present (R1 report)
-               if (result.chi_square_analysis) {
-                    displayChiSquareResults(result.chi_square_analysis);
-               } else {
-                    // Hide chi-square section if not present
-                    document.getElementById('chiSquareResults').classList.add('hidden');
+          } catch (error) {
+               // Log error to console but don't show to user
+               console.warn('Chart rendering warning (non-critical):', error);
+          }
+          
+          // Display chi-square results if present (R1 report)
+          if (result.chi_square_by_period) {
+               try {
+                    displayChiSquareResults(result.chi_square_by_period);
+               } catch (error) {
+                    console.warn('Chi-square display warning (non-critical):', error);
                }
-          } 
-          else {
-               showStatus('Error: ' + (result.message || 'Unknown error'), true);
+          } else {
+               // Hide chi-square section if not present
+               const chiSquareEl = document.getElementById('chiSquareResults');
+               if (chiSquareEl) {
+                    chiSquareEl.classList.add('hidden');
+               }
+          }
+          } else {
+          showStatus('Error: ' + (result.message || 'Unknown error'), true);
           }
      } catch (error) {
           console.error('Fetch error:', error);
@@ -310,245 +316,151 @@ async function fetchData(endpoint, payload, reportType) {
 }
 
 // Display Chi-Square Analysis Results
-function displayChiSquareResults(chiData) {
-     const container = document.getElementById('chiSquareResults');
-     const content = document.getElementById('chiSquareContent');
-     
-     if (!chiData || chiData.error) {
-          container.classList.add('hidden');
+function displayChiSquareResults(chiDataByPeriod) {
+     if (!chiDataByPeriod || Object.keys(chiDataByPeriod).length === 0) {
           return;
      }
      
-     let html = `
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-          <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-               <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Chi-Square Statistic</div>
-               <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.chi_square_statistic}</div>
-          </div>
-          <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-               <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Degrees of Freedom</div>
-               <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.degrees_of_freedom}</div>
-          </div>
-          <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-               <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Critical Value (α=0.05)</div>
-               <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData['critical_value_alpha_0.05']}</div>
-          </div>
-          <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-               <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Significance</div>
-               <div style="font-size: 18px; font-weight: bold; color: ${chiData.is_significant ? '#28a745' : '#dc3545'};">
-                    ${chiData.is_significant ? '✓ Significant' : '✗ Not Significant'}
-               </div>
-          </div>
-          </div>
-          
-          <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #ffc107;">
-          <div style="font-weight: bold; margin-bottom: 8px; color: #856404;">Interpretation:</div>
-          <div style="color: #333;">${chiData.interpretation}</div>
-          </div>
-          
-          <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #ffc107;">
-          <div style="font-weight: bold; margin-bottom: 8px; color: #856404;">Summary Statistics:</div>
-          <div style="color: #333;">
-               <strong>Grand Total:</strong> ${chiData.grand_total.toLocaleString()} observations<br>
-          </div>
-          </div>
-     `;
-     
-     // Top contributions table
-     if (chiData.top_contributions && chiData.top_contributions.length > 0) {
-          html += `
-          <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #ffc107;">
-               <div style="font-weight: bold; margin-bottom: 10px; color: #856404;">Top 10 Cell Contributions to Chi-Square:</div>
-               <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                         <thead>
-                              <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                              <th style="padding: 8px; text-align: left;">Genre</th>
-                              <th style="padding: 8px; text-align: left;">Rating Bin</th>
-                              <th style="padding: 8px; text-align: right;">Observed</th>
-                              <th style="padding: 8px; text-align: right;">Expected</th>
-                              <th style="padding: 8px; text-align: right;">Contribution</th>
-                              </tr>
-                         </thead>
-                         <tbody>
-          `;
-          
-          chiData.top_contributions.forEach((contrib, idx) => {
-          html += `
-               <tr style="border-bottom: 1px solid #dee2e6; ${idx % 2 === 0 ? 'background: #f8f9fa;' : ''}">
-                    <td style="padding: 8px;">${contrib.genre}</td>
-                    <td style="padding: 8px;">${contrib.rating_bin}</td>
-                    <td style="padding: 8px; text-align: right;">${contrib.observed}</td>
-                    <td style="padding: 8px; text-align: right;">${contrib.expected}</td>
-                    <td style="padding: 8px; text-align: right; font-weight: bold; color: ${contrib.contribution > 10 ? '#dc3545' : '#333'};">${contrib.contribution}</td>
-               </tr>
-          `;
-          });
-          
-          html += `
-                         </tbody>
-                    </table>
-               </div>
-               <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                    <em>Note: Higher contribution values indicate cells that deviate most from expected values under independence.</em>
-               </div>
-          </div>
-          `;
-     }
-     
-     content.innerHTML = html;
-     container.classList.remove('hidden');
-}
-
-// Main render table function
-function renderTable(results) {
-     console.log("Rendering table with results:", results);
-
-     if (!results || results.length === 0) {
-          console.warn("⚠️ No results to display.");
-          return;
-     }
-
-     // Destroy existing DataTable (if any)
-     if ($.fn.DataTable.isDataTable('#resultsTable')) {
-          $('#resultsTable').DataTable().destroy();
-     }
-
-     // Clear table
-     $('#resultsHeader').empty();
-     $('#resultsBody').empty();
-
-     // Get column names dynamically from first object
-     const columns = Object.keys(results[0]);
-
-     // Build table header
-     columns.forEach(col => {
-          $('#resultsHeader').append(`<th>${col}</th>`);
+     // Sort time periods
+     const sortedPeriods = Object.keys(chiDataByPeriod).sort((a, b) => {
+          if (a === "All Time") return -1;
+          if (b === "All Time") return 1;
+          return b - a;
      });
-
-     // Build table rows
-     results.forEach(row => {
-          const rowHtml = columns.map(col => `<td>${row[col]}</td>`).join('');
-          $('#resultsBody').append(`<tr>${rowHtml}</tr>`);
-     });
-
-     // Initialize DataTable
-     $('#resultsTable').DataTable({
-          pageLength: 50,      
-          lengthChange: false,  
-          ordering: true,       
-          searching: false,      
-          paging: true,         
-          scrollX: true,        
-          responsive: true,
-          autoWidth: false,     
-          columnDefs: [
-               { width: 'auto', targets: '_all' } 
-          ],
-          language: {
-               paginate: { previous: "←", next: "→" },
-               info: "Showing _START_ to _END_ of _TOTAL_ entries"
+     
+     // Embed chi-square results in each contingency table
+     sortedPeriods.forEach((period) => {
+          const safeId = String(period).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+          const chiData = chiDataByPeriod[period];
+          const container = document.getElementById(`chi_content_${safeId}`);
+          
+          if (!container) return;
+          
+          let html = '';
+          
+          if (chiData.error) {
+          html = `
+               <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 2px solid #ffc107;">
+                    <h4 style="color: #856404; margin-bottom: 10px;">⚠️ Chi-Square Test</h4>
+                    <div style="background: #f8d7da; padding: 15px; border-radius: 6px; border: 1px solid #f5c6cb; color: #721c24;">
+                         <strong>Unable to compute:</strong> ${chiData.error}
+                    </div>
+               </div>
+          `;
+          } else {
+          html = `
+               <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 2px solid #ffc107;">
+                    <h4 style="color: #856404; margin-bottom: 15px;">📈 Chi-Square Test Results</h4>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                         <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                              <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Chi-Square Statistic</div>
+                              <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.chi_square_statistic}</div>
+                         </div>
+                         <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                              <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Degrees of Freedom</div>
+                              <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.degrees_of_freedom}</div>
+                         </div>
+                         <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                              <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Critical Value (α=0.05)</div>
+                              <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData["critical_value_alpha_0.05"]}</div>
+                         </div>
+                         <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                              <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Result</div>
+                              <div style="font-size: 18px; font-weight: bold; color: ${chiData.is_significant ? '#28a745' : '#dc3545'};">
+                              ${chiData.is_significant ? '✓ Significant' : '✗ Not Significant'}
+                              </div>
+                         </div>
+                    </div>
+                    
+                    <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
+                         <div style="font-weight: bold; margin-bottom: 8px; color: #856404;">Interpretation:</div>
+                         <div style="color: #333;">${chiData.interpretation}</div>
+                    </div>
+          `;
+          
+          // Top contributions table
+          if (chiData.top_contributions && chiData.top_contributions.length > 0) {
+               html += `
+                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                         <div style="font-weight: bold; margin-bottom: 10px; color: #856404;">Top Cell Contributions:</div>
+                         <div style="overflow-x: auto;">
+                              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                              <thead>
+                                   <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                        <th style="padding: 8px; text-align: left;">Genre</th>
+                                        <th style="padding: 8px; text-align: left;">Rating</th>
+                                        <th style="padding: 8px; text-align: right;">Observed</th>
+                                        <th style="padding: 8px; text-align: right;">Expected</th>
+                                        <th style="padding: 8px; text-align: right;">Contribution</th>
+                                   </tr>
+                              </thead>
+                              <tbody>
+               `;
+               
+               chiData.top_contributions.forEach((contrib, idx) => {
+                    html += `
+                         <tr style="border-bottom: 1px solid #dee2e6; ${idx % 2 === 0 ? 'background: #fafafa;' : 'background: white;'}">
+                              <td style="padding: 8px;">${contrib.genre}</td>
+                              <td style="padding: 8px;">${contrib.rating_bin}</td>
+                              <td style="padding: 8px; text-align: right;">${contrib.observed}</td>
+                              <td style="padding: 8px; text-align: right;">${contrib.expected}</td>
+                              <td style="padding: 8px; text-align: right; font-weight: bold; color: ${contrib.contribution > 10 ? '#dc3545' : '#333'};">${contrib.contribution}</td>
+                         </tr>
+                    `;
+               });
+               
+               html += `
+                              </tbody>
+                              </table>
+                         </div>
+                         <div style="margin-top: 10px; font-size: 11px; color: #666;">
+                              <em>Higher contributions indicate larger deviations from expected values.</em>
+                         </div>
+                    </div>
+               `;
           }
+          
+          html += `</div>`; // Close yellow container
+          }
+          
+          container.innerHTML = html;
      });
 }
 
-// Sample data generators (for testing)
-function generateR1Data() {
-     return [
-          { genre: 'Action', rating_bin: 'Low', time_period: 2020, count: 150 },
-          { genre: 'Action', rating_bin: 'Mid', time_period: 2020, count: 450 },
-          { genre: 'Action', rating_bin: 'High', time_period: 2020, count: 200 },
-          { genre: 'Drama', rating_bin: 'Low', time_period: 2020, count: 100 },
-          { genre: 'Drama', rating_bin: 'Mid', time_period: 2020, count: 400 },
-          { genre: 'Drama', rating_bin: 'High', time_period: 2020, count: 300 },
-          { genre: 'Action', rating_bin: 'Low', time_period: 2021, count: 120 },
-          { genre: 'Action', rating_bin: 'Mid', time_period: 2021, count: 480 },
-          { genre: 'Action', rating_bin: 'High', time_period: 2021, count: 250 },
-     ];
+// Function to switch between chi-square periods
+function showChiPeriod(safeId, displayPeriod) {
+     // Hide all period containers
+     const containers = document.querySelectorAll('.chi-period-content');
+     containers.forEach(container => {
+          container.style.display = 'none';
+     });
+     
+     // Show selected period
+     const selectedContainer = document.getElementById(`chi_period_${safeId}`);
+     if (selectedContainer) {
+          selectedContainer.style.display = 'block';
+     }
+     
+     // Update tab styles
+     const tabs = document.querySelectorAll('.chi-period-tab');
+     tabs.forEach(tab => {
+          tab.style.background = '#fff3cd';
+          tab.style.color = '#856404';
+          tab.classList.remove('active');
+     });
+     
+     // Highlight active tab
+     const activeTab = document.getElementById(`chi_tab_${safeId}`);
+     if (activeTab) {
+          activeTab.style.background = '#ffc107';
+          activeTab.style.color = 'white';
+          activeTab.classList.add('active');
+     }
 }
 
-function generateR2Data() {
-     return [
-          { time_period: 2018, titleType: 'movie', avg_runtime: 110.5 },
-          { time_period: 2019, titleType: 'movie', avg_runtime: 115.2 },
-          { time_period: 2020, titleType: 'movie', avg_runtime: 118.8 },
-          { time_period: 2021, titleType: 'movie', avg_runtime: 120.1 },
-          { time_period: 2018, titleType: 'tvSeries', avg_runtime: 42.3 },
-          { time_period: 2019, titleType: 'tvSeries', avg_runtime: 43.1 },
-          { time_period: 2020, titleType: 'tvSeries', avg_runtime: 44.5 },
-          { time_period: 2021, titleType: 'tvSeries', avg_runtime: 45.2 },
-     ];
-}
-
-function generateR3Data() {
-     const names = ['Christopher Nolan', 'Steven Spielberg', 'Quentin Tarantino', 
-                    'Martin Scorsese', 'James Cameron', 'Ridley Scott'];
-     return names.map((name, i) => ({
-          nconst: `nm${i}`,
-          primaryName: name,
-          avg_rating: 8.5 - (i * 0.3),
-          total_titles: 20 - (i * 2)
-     }));
-}
-
-function generateR4Data() {
-     const genres = ['Action', 'Drama', 'Comedy', 'Thriller', 'Sci-Fi'];
-     return genres.map(genre => ({
-          genreName: genre,
-          total_votes: Math.floor(Math.random() * 500000) + 100000,
-          title_count: Math.floor(Math.random() * 100) + 50,
-          avg_votes_per_title: Math.floor(Math.random() * 5000) + 1000,
-          avg_rating: (Math.random() * 3 + 6).toFixed(1)
-     }));
-}
-
-function generateR5Data() {
-     return [
-          { series_title: 'Breaking Bad', total_votes: 1500000, avg_rating: 9.5, episode_count: 62 },
-          { series_title: 'Game of Thrones', total_votes: 1800000, avg_rating: 9.2, episode_count: 73 },
-          { series_title: 'The Office', total_votes: 1200000, avg_rating: 8.9, episode_count: 201 },
-          { series_title: 'Friends', total_votes: 1000000, avg_rating: 8.8, episode_count: 236 },
-     ];
-}
-
-// Test functions
-function testR1Chart() {
-     const data = generateR1Data();
-     console.log('Testing R1 with data:', data);
-     showStatus('Loaded sample R1 data', false);
-     renderChart(data, 'R1');
-}
-
-function testR2Chart() {
-     const data = generateR2Data();
-     console.log('Testing R2 with data:', data);
-     showStatus('Loaded sample R2 data', false);
-     renderChart(data, 'R2');
-}
-
-function testR3Chart() {
-     const data = generateR3Data();
-     console.log('Testing R3 with data:', data);
-     showStatus('Loaded sample R3 data', false);
-     renderChart(data, 'R3');
-}
-
-function testR4Chart() {
-     const data = generateR4Data();
-     console.log('Testing R4 with data:', data);
-     showStatus('Loaded sample R4 data', false);
-     renderChart(data, 'R4');
-}
-
-function testR5Chart() {
-     const data = generateR5Data();
-     console.log('Testing R5 with data:', data);
-     showStatus('Loaded sample R5 data', false);
-     renderChart(data, 'R5');
-}
-
-// Main render table function
-/*function renderGroupedTable(container, results, reportType, groupByField) {
+// Main render table function for R3 to R5
+function renderGroupedTable(container, results, reportType, groupByField) {
      const groupedData = {};
      
      // Group results by the specified field
@@ -560,6 +472,38 @@ function testR5Chart() {
           groupedData[groupKey].push(row);
      });
      
+     // Sort grouped data keys by time period if applicable
+     let sortedGroupKeys = Object.keys(groupedData);
+     
+     if (groupByField === 'time_period') {
+          sortedGroupKeys = sortedGroupKeys.sort((a, b) => {
+          // Define era order
+          const eraOrder = {
+               'Silent Movie Era (Pre-1930s)': 1,
+               'The Golden Age of Hollywood (1930-1969)': 2,
+               'Blockbusters (1970-1989)': 3,
+               'Digital Revolution (1990-2009)': 4,
+               'Streaming (2010-Present)': 5
+          };
+          
+          // If both are eras, use era order
+          if (eraOrder[a] && eraOrder[b]) {
+               return eraOrder[a] - eraOrder[b];
+          }
+          
+          // Try to parse as numbers (for years/decades)
+          const aNum = parseInt(a);
+          const bNum = parseInt(b);
+          
+          if (!isNaN(aNum) && !isNaN(bNum)) {
+               return bNum - aNum; // Descending for numeric periods
+          }
+          
+          // Fallback to alphabetical
+          return a.localeCompare(b);
+          });
+     }
+     
      // Determine column headers based on report type
      let columns = [];
      if (reportType === 'R2') {
@@ -567,7 +511,7 @@ function testR5Chart() {
      } else if (reportType === 'R3') {
           columns = ['primaryName', 'avg_rating', 'total_titles'];
      } else if (reportType === 'R4') {
-          columns = ['time_period', 'total_votes', 'title_count', 'avg_votes_per_title', 'avg_rating'];
+          columns = ['genreName', 'total_votes', 'title_count', 'avg_votes_per_title', 'avg_rating'];
      } else if (reportType === 'R5') {
           // Check what level of data we have
           const hasEpisodeNumber = results[0]?.episodeNumber !== undefined;
@@ -589,9 +533,13 @@ function testR5Chart() {
           }
           }
      }
+
+     // Remove 'rn' column if it exists
+     columns = columns.filter(col => col !== 'rn');
      
      const columnLabels = {
           'time_period': 'Time Period',
+          'genreName': 'Genre',
           'titleType': 'Title Type',
           'avg_runtime': 'Avg Runtime (min)',
           'title_count': 'Title Count',
@@ -608,10 +556,11 @@ function testR5Chart() {
      };
      
      let html = '<div style="display: grid; gap: 30px;">';
-     let totalGroups = Object.keys(groupedData).length;
+     let totalGroups = sortedGroupKeys.length;
      let groupCount = 0;
      
-     Object.entries(groupedData).forEach(([groupName, data]) => {
+     sortedGroupKeys.forEach((groupName) => {
+          const data = groupedData[groupName];
           groupCount++;
           // Limit to top 10 per group and sort by most relevant metric
           let topData = data.slice(0, 10);
@@ -679,7 +628,7 @@ function testR5Chart() {
      
      html += '</div>';
      container.innerHTML = html;
-}*/
+}
 
 // Main render chart function
 function renderChart(results, reportType) {
@@ -706,7 +655,7 @@ function renderChart(results, reportType) {
      console.log(`R${reportType.slice(1)} - hasGenre: ${hasGenre}, hasTimePeriod: ${hasTimePeriod}, hasTitleType: ${hasTitleType}`);
      
      // Use table view if optional grouping is present
-     /*if (reportType === 'R3' && hasGenre) {
+     if (reportType === 'R3' && hasGenre) {
           renderGroupedTable(chartContainer, results, reportType, 'genreName');
           return;
      }
@@ -725,7 +674,7 @@ function renderChart(results, reportType) {
      if (reportType === 'R5' && hasTimePeriod) {
           renderGroupedTable(chartContainer, results, reportType, 'time_period');
           return;
-     }*/
+     }
      
      // Otherwise render chart as normal
      chartContainer.innerHTML = '<canvas id="resultsChart"></canvas>';
@@ -752,78 +701,271 @@ function renderChart(results, reportType) {
      }
 }
 
-// R1: Genre-Rating Association Chart
+// R1: Genre-Rating Association - Contingency Tables with Dropdown Selector
 function renderR1Chart(ctx, results) {
-     const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
-     const ratingBins = ['Very Low', 'Low', 'Mid', 'High', 'Very High'];
+     const chartContainer = document.getElementById('chartContainer');
      
-     const datasets = ratingBins.map(bin => {
-          const data = timePeriods.map(period => {
-               const entry = results.find(r => r.time_period === period && r.rating_bin === bin);
-               return entry ? entry.count : 0;
-          });
-          const colors = {
-               'Very Low': 'rgba(255, 99, 132, 0.7)',
-               'Low': 'rgba(255, 206, 86, 0.7)',
-               'Mid': 'rgba(75, 192, 192, 0.7)',
-               'High': 'rgba(153, 102, 255, 0.7)',
-               'Very High': 'rgba(255, 159, 64, 0.7)'
-          };
-          return {
-               label: `${bin} Rating`,
-               data: data,
-               backgroundColor: colors[bin],
-               borderColor: colors[bin].replace('0.7', '1'),
-               borderWidth: 1
-          };
+     const timePeriods = [...new Set(results.map(r => r.time_period))].sort((a, b) => {
+          // Handle "All Time" string
+          if (a === "All Time") return -1;
+          if (b === "All Time") return 1;
+          return b - a; // Descending for years/decades
      });
+     const genres = [...new Set(results.map(r => r.genre))].sort();
+     const ratingBins = ['Very Low', 'Low', 'Mid', 'High', 'Very High'];
 
-     currentChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-               labels: timePeriods,
-               datasets: datasets
-          },
-          options: {
-               responsive: true,
-               maintainAspectRatio: false,
-               plugins: {
-                    title: {
-                         display: true,
-                         text: 'Genre-Rating Distribution Over Time',
-                         font: { size: 16 }
-                    },
-                    legend: {
-                         display: true,
-                         position: 'top'
-                    }
-               },
-               scales: {
-                    x: {
-                         stacked: true,
-                         title: { display: true, text: 'Time Period' }
-                    },
-                    y: {
-                         stacked: true,
-                         title: { display: true, text: 'Count' },
-                         beginAtZero: true
-                    }
-               }
+     const binRanges = {
+          'Very Low': '< 2.0',
+          'Low': '2.0 - 3.9',
+          'Mid': '4.0 - 5.9',
+          'High': '6.0 - 7.9',
+          'Very High': '≥ 8.0'
+          };
+     
+     // Build contingency table data structure
+     const contingencyData = {};
+     genres.forEach(genre => {
+          contingencyData[genre] = {};
+          ratingBins.forEach(bin => {
+          contingencyData[genre][bin] = {};
+          timePeriods.forEach(period => {
+               contingencyData[genre][bin][period] = 0;
+          });
+          });
+     });
+     
+     // Populate with actual data
+     results.forEach(row => {
+          if (contingencyData[row.genre] && contingencyData[row.genre][row.rating_bin]) {
+          contingencyData[row.genre][row.rating_bin][row.time_period] = {
+               observed: row.observed,
+               expected: row.expected
+          };
           }
      });
+     
+     // Store contingency data globally
+     window.r1ContingencyData = {
+          timePeriods,
+          genres,
+          ratingBins,
+          contingencyData
+     };
+     
+     // Build the HTML with dropdown
+     let html = `
+          <div style="padding: 20px;">
+          <h3 style="margin: 0 0 10px 0; color: #333;">R1: Genre-Rating Association Analysis</h3>
+          <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+               Observed frequencies and chi-square test results for contingency table analysis
+          </p>
+          
+          <!-- Period Dropdown Selector -->
+          <div style="margin-bottom: 25px;">
+               <label for="r1_period_selector" style="font-weight: 600; margin-right: 10px; color: #667eea;">
+                    Select Time Period:
+               </label>
+               <select 
+                    id="r1_period_selector" 
+                    onchange="showR1PeriodFromDropdown()"
+                    style="padding: 10px 15px; border: 2px solid #667eea; border-radius: 6px; 
+                         font-size: 14px; font-weight: 600; cursor: pointer; min-width: 200px;
+                         background: white; color: #667eea;">
+     `;
+     
+     timePeriods.forEach((period, idx) => {
+          const safeId = String(period).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+          html += `<option value="${safeId}" data-period="${period}">${period}</option>`;
+     });
+     
+     html += `
+               </select>
+          </div>
+          
+          <!-- Period Content Containers -->
+          <div id="r1_period_containers">
+     `;
+     
+     // Generate contingency table for each time period
+     timePeriods.forEach((period, periodIdx) => {
+          const safeId = String(period).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+          
+          html += `
+          <div id="r1_period_${safeId}" class="r1-period-content" style="display: ${periodIdx === 0 ? 'block' : 'none'};">
+               <!-- Contingency Table -->
+               <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 25px;">
+                    <h4 style="margin: 0 0 15px 0; color: #667eea; font-size: 18px;">
+                         📊 Contingency Table: ${period}
+                    </h4>
+                    <div style="overflow-x: auto;">
+                         <table style="border-collapse: collapse; font-size: 13px; width: 100%;">
+                              <thead>
+                              <tr style="background: #667eea; color: white;">
+                                   <th style="padding: 12px; text-align: left; border: 1px solid #ddd; position: sticky; left: 0; background: #667eea; z-index: 10;">Genre</th>
+          `;
+
+          ratingBins.forEach(bin => {
+          const range = binRanges[bin];
+          html += `<th style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #667eea; color: white; font-size: 12px;">
+               ${bin}<br/>
+               <span style="font-weight: normal; font-size: 10px; color: #fff;">(${range})</span><br/>
+               <span style="font-weight: normal; font-size: 11px;">Obs/Exp</span>
+          </th>`;
+          });
+
+          html += `
+                                                  <th style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #5568d3;">Row Total</th>
+                                                  </tr>
+                                             </thead>
+                                             <tbody>
+                         `;
+
+
+          let columnTotals = {};
+          ratingBins.forEach(bin => columnTotals[bin] = 0);
+          let grandTotal = 0;
+
+          // First pass: collect totals
+          const tempContingency = {};
+          genres.forEach(genre => {
+          tempContingency[genre] = {};
+          ratingBins.forEach(bin => {
+               const cellData = contingencyData[genre][bin][period];
+               tempContingency[genre][bin] = cellData?.observed || 0;
+               columnTotals[bin] += tempContingency[genre][bin];
+               grandTotal += tempContingency[genre][bin];
+          });
+          });
+
+          genres.forEach((genre, idx) => {
+          html += `<tr style="${idx % 2 === 0 ? 'background: #fafafa;' : 'background: white;'}">`;
+          html += `<td style="padding: 8px; font-weight: 600; border: 1px solid #ddd; position: sticky; left: 0; background: ${idx % 2 === 0 ? '#fafafa' : 'white'}; z-index: 5;">${genre}</td>`;
+          
+          let rowTotal = 0;
+          ratingBins.forEach(bin => {
+               const cellData = contingencyData[genre][bin][period];
+               const observed = cellData?.observed || 0;
+               const expected = cellData?.expected || 0;
+               rowTotal += observed;
+               
+               html += `<td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-size: 12px;">
+                    <div style="color: #0066cc; font-weight: 600;">${observed}</div>
+                    <div style="color: #999; font-size: 10px;">/ ${expected.toFixed(1)}</div>
+               </td>`;
+          });
+          
+          html += `<td style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #f0f0f0; font-weight: 600;">${rowTotal.toLocaleString()}</td>`;
+          html += `</tr>`;
+          });
+
+          // Column totals row
+          html += `
+                              <tr style="background: #e8eaf6; font-weight: 600;">
+                                   <td style="padding: 8px; border: 1px solid #ddd; position: sticky; left: 0; background: #e8eaf6; z-index: 5;">Column Total</td>
+          `;
+
+          let colExpectedTotals = {};
+          ratingBins.forEach(bin => {
+          let expectedSum = 0;
+          genres.forEach(genre => {
+               const cellData = contingencyData[genre][bin][period];
+               expectedSum += cellData?.expected || 0;
+          });
+          colExpectedTotals[bin] = expectedSum;
+          html += `<td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-size: 12px;">
+               <div style="color: #0066cc; font-weight: 600;">${columnTotals[bin].toLocaleString()}</div>
+               <div style="color: #999; font-size: 10px;">/ ${expectedSum.toFixed(1)}</div>
+          </td>`;
+          });
+
+          let grandExpected = Object.values(colExpectedTotals).reduce((a, b) => a + b, 0);
+          html += `
+                                                  <td style="padding: 8px; text-align: center; border: 1px solid #ddd; background: #667eea; color: white; font-size: 12px;">
+                                                       <div>${grandTotal.toLocaleString()}</div>
+                                                       <div style="font-size: 10px;">/ ${grandExpected.toFixed(1)}</div>
+                                                  </td>
+                                                  </tr>
+                              </tbody>
+                         </table>
+                    </div>
+               </div>
+               
+               <!-- Chi-Square Results Placeholder (will be filled by displayChiSquareResults) -->
+               <div id="chi_content_${safeId}"></div>
+          </div>
+          `;
+     });
+     
+     html += `
+          </div>
+          </div>
+     `;
+     
+     chartContainer.innerHTML = html;
+}
+
+// Function to switch periods from dropdown
+function showR1PeriodFromDropdown() {
+     const selector = document.getElementById('r1_period_selector');
+     const safeId = selector.value;
+     
+     // Hide all period containers
+     const containers = document.querySelectorAll('.r1-period-content');
+     containers.forEach(container => {
+          container.style.display = 'none';
+     });
+     
+     // Show selected period
+     const selectedContainer = document.getElementById(`r1_period_${safeId}`);
+     if (selectedContainer) {
+          selectedContainer.style.display = 'block';
+     }
 }
 
 // R2: Runtime Trends Chart
 function renderR2Chart(ctx, results) {
-     const timePeriods = [...new Set(results.map(r => r.time_period))].sort();
-     const titleTypes = [...new Set(results.map(r => r.titleType))];
+     // Helper function to sort time periods (handles years, decades, eras)
+     const sortTimePeriods = (periods) => {
+          return periods.sort((a, b) => {
+          // Define era order (matching your backend)
+          const eraOrder = {
+               'Silent Movie Era (Pre-1930s)': 1,
+               'The Golden Age of Hollywood (1930-1969)': 2,
+               'Blockbusters (1970-1989)': 3,
+               'Digital Revolution (1990-2009)': 4,
+               'Streaming (2010-Present)': 5
+          };
+          
+          // If both are eras, use era order
+          if (eraOrder[a] && eraOrder[b]) {
+               return eraOrder[a] - eraOrder[b];
+          }
+          
+          // Parse numeric values for decades (e.g., "1990s" -> 1990)
+          const aNum = typeof a === 'string' ? parseInt(a) : a;
+          const bNum = typeof b === 'string' ? parseInt(b) : b;
+          
+          // Sort numerically ASCENDING (for years/decades)
+          return aNum - bNum;
+          });
+     };
+     
+     const timePeriods = sortTimePeriods([...new Set(results.map(r => r.time_period))]);
+     const titleTypes = [...new Set(results.map(r => r.titleType))]; // NO .slice() here!
      
      const colorPalette = [
-          'rgba(54, 162, 235, 0.7)',
-          'rgba(255, 99, 132, 0.7)',
-          'rgba(75, 192, 192, 0.7)',
-          'rgba(153, 102, 255, 0.7)',
-          'rgba(255, 159, 64, 0.7)'
+          'rgba(54, 162, 235, 0.7)',   // Sky Blue
+          'rgba(255, 99, 132, 0.7)',   // Soft Red
+          'rgba(255, 159, 64, 0.7)',   // Orange
+          'rgba(75, 192, 192, 0.7)',   // Teal
+          'rgba(153, 102, 255, 0.7)',  // Violet
+          'rgba(255, 205, 86, 0.7)',   // Golden Yellow
+          'rgba(102, 102, 102, 0.7)',  // Gray
+          'rgba(255, 99, 255, 0.7)',   // Magenta
+          'rgba(99, 255, 132, 0.7)',   // Bright Green
+          'rgba(255, 120, 180, 0.7)',  // Warm Pink
+          'rgba(30, 144, 255, 0.7)',   // Dodger Blue
+          'rgba(186, 85, 211, 0.7)'    // Orchid (Purple-Pink)
      ];
 
      const datasets = titleTypes.map((type, index) => {
@@ -831,6 +973,13 @@ function renderR2Chart(ctx, results) {
           const entry = results.find(r => r.time_period === period && r.titleType === type);
           return entry ? parseFloat(entry.avg_runtime) : null;
           });
+          
+          // Check if this title type has any data
+          const hasData = data.some(val => val !== null);
+          if (!hasData) {
+          console.warn(`⚠️ No data found for title type: ${type}`);
+          }
+          
           return {
           label: type,
           data: data,
@@ -838,7 +987,8 @@ function renderR2Chart(ctx, results) {
           backgroundColor: colorPalette[index % colorPalette.length].replace('0.7', '0.2'),
           borderWidth: 2,
           fill: false,
-          tension: 0.4
+          tension: 0.4,
+          spanGaps: true // Connect line even with null values
           };
      });
 
@@ -860,6 +1010,16 @@ function renderR2Chart(ctx, results) {
                legend: {
                     display: true,
                     position: 'top'
+               },
+               tooltip: {
+                    callbacks: {
+                         label: function(context) {
+                              if (context.parsed.y === null) {
+                              return context.dataset.label + ': No data';
+                              }
+                              return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + ' min';
+                         }
+                    }
                }
           },
           scales: {
@@ -1129,7 +1289,55 @@ function renderR5Chart(ctx, results) {
      });
 }
 
-// Auto-load a test chart on page load
-window.addEventListener('DOMContentLoaded', () => {
-     testR1Chart();
-});
+// ------------- //
+
+function renderTable(results) {
+     console.log("Rendering table with results:", results);
+
+     if (!results || results.length === 0) {
+          console.warn("⚠️ No results to display.");
+          return;
+     }
+
+     // Destroy existing DataTable (if any)
+     if ($.fn.DataTable.isDataTable('#resultsTable')) {
+          $('#resultsTable').DataTable().destroy();
+     }
+
+     // Clear table
+     $('#resultsHeader').empty();
+     $('#resultsBody').empty();
+
+     // Get column names dynamically from first object
+     const columns = Object.keys(results[0]);
+
+     // Build table header
+     columns.forEach(col => {
+          $('#resultsHeader').append(`<th>${col}</th>`);
+     });
+
+     // Build table rows
+     results.forEach(row => {
+          const rowHtml = columns.map(col => `<td>${row[col]}</td>`).join('');
+          $('#resultsBody').append(`<tr>${rowHtml}</tr>`);
+     });
+
+     // Initialize DataTable
+     $('#resultsTable').DataTable({
+          pageLength: 50,      
+          lengthChange: false,  
+          ordering: true,       
+          searching: true,      
+          paging: true,         
+          scrollX: true,        
+          responsive: true,
+          autoWidth: false,     
+          columnDefs: [
+               { width: 'auto', targets: '_all' } 
+          ],
+          language: {
+               paginate: { previous: "←", next: "→" },
+               info: "Showing _START_ to _END_ of _TOTAL_ entries"
+          }
+     });
+}
