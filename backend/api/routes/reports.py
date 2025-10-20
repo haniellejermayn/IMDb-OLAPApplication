@@ -1007,14 +1007,14 @@ def tv_engagement():
         # Determine partition fields EARLY (before GROUP BY)
         partition_by_fields = []
         if group_by_genre:
-            partition_by_fields.append("dg.genreName")
+            partition_by_fields.append("genreName")
         if group_by_time:
             partition_by_fields.append("time_period")
         
         # Dynamic GROUP BY
         if tv_level in ['series', 'season']:
             if group_by_genre:
-                default_groups.append("dg.genreName")
+                default_groups.append("genreName")
             if group_by_time:
                 default_groups.append('time_period')
             
