@@ -675,7 +675,7 @@ def person_performance():
             ORDER BY {partition_clause}, avg_rating DESC
             """
         else:
-            query += " LIMIT 50"
+            query += " ORDER BY avg_rating DESC, total_titles DESC LIMIT 50"
         
         data = execute_query(query, tuple(params_list))
         return jsonify({"status": "success", "data": data, "query": query, "params": params_list})
