@@ -267,47 +267,44 @@ async function fetchData(endpoint, payload, reportType) {
           console.log(`Sending request to ${endpoint}:`, payload);
 
           const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify(payload)
           });
 
           const result = await response.json();
           console.log('Response:', result);
 
           if (result.status === 'success' && result.data) {
-          showStatus(`✓ Successfully fetched ${result.data.length} rows`, false);
-          
-          try {
-               renderChart(result.data, reportType);
-               renderTable(result.data)
-
-               document.getElementById("queryBox").innerHTML = 
-                    `SQL Query Generated:<pre><code>${result.query || "No query returned"}</code></pre>`;
-
-               document.getElementById("paramsBox").innerHTML = 
-                    `Parameters:<pre><code>${JSON.stringify(result.params || [], null, 2)}</code></pre>`;
-          } catch (error) {
-               // Log error to console but don't show to user
-               console.warn('Chart rendering warning (non-critical):', error);
-          }
-          
-          // Display chi-square results if present (R1 report)
-          if (result.chi_square_by_period) {
+               showStatus(`✓ Successfully fetched ${result.data.length} rows`, false);
+               
                try {
-                    displayChiSquareResults(result.chi_square_by_period);
+                    renderChart(result.data, reportType);
+                    renderTable(result.data);
+
+                    document.getElementById("queryBox").innerHTML = 
+                         `SQL Query Generated:<pre><code>${result.query || "No query returned"}</code></pre>`;
+
+                    document.getElementById("paramsBox").innerHTML = 
+                         `Parameters:<pre><code>${JSON.stringify(result.params || [], null, 2)}</code></pre>`;
                } catch (error) {
-                    console.warn('Chi-square display warning (non-critical):', error);
+                    // Log error to console but don't show to user
+                    console.warn('Chart rendering warning (non-critical):', error);
+               }
+               
+               // Display chi-square results if present (R1 report)
+               // Use setTimeout to ensure DOM is fully updated
+               if (result.chi_square_analysis && reportType === 'R1') {
+                    setTimeout(() => {
+                         try {
+                              displayChiSquareResults(result.chi_square_analysis);
+                         } catch (error) {
+                              console.warn('Chi-square display warning (non-critical):', error);
+                         }
+                    }, 100);
                }
           } else {
-               // Hide chi-square section if not present
-               const chiSquareEl = document.getElementById('chiSquareResults');
-               if (chiSquareEl) {
-                    chiSquareEl.classList.add('hidden');
-               }
-          }
-          } else {
-          showStatus('Error: ' + (result.message || 'Unknown error'), true);
+               showStatus('Error: ' + (result.message || 'Unknown error'), true);
           }
      } catch (error) {
           console.error('Fetch error:', error);
@@ -317,7 +314,11 @@ async function fetchData(endpoint, payload, reportType) {
 
 // Display Chi-Square Analysis Results
 function displayChiSquareResults(chiDataByPeriod) {
+     console.log('=== displayChiSquareResults CALLED ===');
+     console.log('Chi data received:', chiDataByPeriod);
+     
      if (!chiDataByPeriod || Object.keys(chiDataByPeriod).length === 0) {
+          console.warn('❌ No chi-square data provided or empty object');
           return;
      }
      
@@ -328,104 +329,122 @@ function displayChiSquareResults(chiDataByPeriod) {
           return b - a;
      });
      
+     console.log('Sorted periods:', sortedPeriods);
+     
      // Embed chi-square results in each contingency table
      sortedPeriods.forEach((period) => {
           const safeId = String(period).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
           const chiData = chiDataByPeriod[period];
-          const container = document.getElementById(`chi_content_${safeId}`);
           
-          if (!container) return;
+          console.log(`\n--- Processing period: "${period}" ---`);
+          console.log(`Safe ID: chi_content_${safeId}`);
+          
+          const container = document.getElementById(`chi_content_${safeId}`);
+          console.log('Container found:', container);
+          
+          if (!container) {
+               console.error(`❌ Container NOT FOUND: chi_content_${safeId}`);
+               // List all elements with IDs starting with 'chi_content_'
+               const allChiContainers = document.querySelectorAll('[id^="chi_content_"]');
+               console.log('Available chi_content containers:', Array.from(allChiContainers).map(el => el.id));
+               return;
+          }
+          
+          console.log('✓ Container found, populating with chi-square data');
           
           let html = '';
           
           if (chiData.error) {
-          html = `
-               <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 2px solid #ffc107;">
-                    <h4 style="color: #856404; margin-bottom: 10px;">⚠️ Chi-Square Test</h4>
-                    <div style="background: #f8d7da; padding: 15px; border-radius: 6px; border: 1px solid #f5c6cb; color: #721c24;">
-                         <strong>Unable to compute:</strong> ${chiData.error}
+               html = `
+                    <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 2px solid #ffc107;">
+                         <h4 style="color: #856404; margin-bottom: 10px;">⚠️ Chi-Square Test</h4>
+                         <div style="background: #f8d7da; padding: 15px; border-radius: 6px; border: 1px solid #f5c6cb; color: #721c24;">
+                              <strong>Unable to compute:</strong> ${chiData.error}
+                         </div>
                     </div>
-               </div>
-          `;
+               `;
           } else {
-          html = `
-               <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 2px solid #ffc107;">
-                    <h4 style="color: #856404; margin-bottom: 15px;">📈 Chi-Square Test Results</h4>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                         <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
-                              <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Chi-Square Statistic</div>
-                              <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.chi_square_statistic}</div>
-                         </div>
-                         <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
-                              <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Degrees of Freedom</div>
-                              <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.degrees_of_freedom}</div>
-                         </div>
-                         <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
-                              <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Critical Value (α=0.05)</div>
-                              <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData["critical_value_alpha_0.05"]}</div>
-                         </div>
-                         <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
-                              <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Result</div>
-                              <div style="font-size: 18px; font-weight: bold; color: ${chiData.is_significant ? '#28a745' : '#dc3545'};">
-                              ${chiData.is_significant ? '✓ Significant' : '✗ Not Significant'}
+               html = `
+                    <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 2px solid #ffc107;">
+                         <h4 style="color: #856404; margin-bottom: 15px;">📈 Chi-Square Test Results</h4>
+                         
+                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                              <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                                   <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Chi-Square Statistic</div>
+                                   <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.chi_square_statistic}</div>
+                              </div>
+                              <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                                   <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Degrees of Freedom</div>
+                                   <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData.degrees_of_freedom}</div>
+                              </div>
+                              <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                                   <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Critical Value (α=0.05)</div>
+                                   <div style="font-size: 24px; font-weight: bold; color: #333;">${chiData["critical_value_alpha_0.05"]}</div>
+                              </div>
+                              <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                                   <div style="font-size: 12px; color: #856404; margin-bottom: 5px;">Result</div>
+                                   <div style="font-size: 18px; font-weight: bold; color: ${chiData.is_significant ? '#28a745' : '#dc3545'};">
+                                   ${chiData.is_significant ? '✓ Significant' : '✗ Not Significant'}
+                                   </div>
                               </div>
                          </div>
-                    </div>
-                    
-                    <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
-                         <div style="font-weight: bold; margin-bottom: 8px; color: #856404;">Interpretation:</div>
-                         <div style="color: #333;">${chiData.interpretation}</div>
-                    </div>
-          `;
-          
-          // Top contributions table
-          if (chiData.top_contributions && chiData.top_contributions.length > 0) {
-               html += `
-                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
-                         <div style="font-weight: bold; margin-bottom: 10px; color: #856404;">Top Cell Contributions:</div>
-                         <div style="overflow-x: auto;">
-                              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                              <thead>
-                                   <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                                        <th style="padding: 8px; text-align: left;">Genre</th>
-                                        <th style="padding: 8px; text-align: left;">Rating</th>
-                                        <th style="padding: 8px; text-align: right;">Observed</th>
-                                        <th style="padding: 8px; text-align: right;">Expected</th>
-                                        <th style="padding: 8px; text-align: right;">Contribution</th>
-                                   </tr>
-                              </thead>
-                              <tbody>
+                         
+                         <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
+                              <div style="font-weight: bold; margin-bottom: 8px; color: #856404;">Interpretation:</div>
+                              <div style="color: #333;">${chiData.interpretation}</div>
+                         </div>
                `;
                
-               chiData.top_contributions.forEach((contrib, idx) => {
+               // Top contributions table
+               if (chiData.top_contributions && chiData.top_contributions.length > 0) {
                     html += `
-                         <tr style="border-bottom: 1px solid #dee2e6; ${idx % 2 === 0 ? 'background: #fafafa;' : 'background: white;'}">
-                              <td style="padding: 8px;">${contrib.genre}</td>
-                              <td style="padding: 8px;">${contrib.rating_bin}</td>
-                              <td style="padding: 8px; text-align: right;">${contrib.observed}</td>
-                              <td style="padding: 8px; text-align: right;">${contrib.expected}</td>
-                              <td style="padding: 8px; text-align: right; font-weight: bold; color: ${contrib.contribution > 10 ? '#dc3545' : '#333'};">${contrib.contribution}</td>
-                         </tr>
+                         <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                              <div style="font-weight: bold; margin-bottom: 10px; color: #856404;">Top Cell Contributions:</div>
+                              <div style="overflow-x: auto;">
+                                   <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                   <thead>
+                                        <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                             <th style="padding: 8px; text-align: left;">Genre</th>
+                                             <th style="padding: 8px; text-align: left;">Rating</th>
+                                             <th style="padding: 8px; text-align: right;">Observed</th>
+                                             <th style="padding: 8px; text-align: right;">Expected</th>
+                                             <th style="padding: 8px; text-align: right;">Contribution</th>
+                                        </tr>
+                                   </thead>
+                                   <tbody>
                     `;
-               });
+                    
+                    chiData.top_contributions.forEach((contrib, idx) => {
+                         html += `
+                              <tr style="border-bottom: 1px solid #dee2e6; ${idx % 2 === 0 ? 'background: #fafafa;' : 'background: white;'}">
+                                   <td style="padding: 8px;">${contrib.genre}</td>
+                                   <td style="padding: 8px;">${contrib.rating_bin}</td>
+                                   <td style="padding: 8px; text-align: right;">${contrib.observed}</td>
+                                   <td style="padding: 8px; text-align: right;">${contrib.expected}</td>
+                                   <td style="padding: 8px; text-align: right; font-weight: bold; color: ${contrib.contribution > 10 ? '#dc3545' : '#333'};">${contrib.contribution}</td>
+                              </tr>
+                         `;
+                    });
+                    
+                    html += `
+                                   </tbody>
+                                   </table>
+                              </div>
+                              <div style="margin-top: 10px; font-size: 11px; color: #666;">
+                                   <em>Higher contributions indicate larger deviations from expected values.</em>
+                              </div>
+                         </div>
+                    `;
+               }
                
-               html += `
-                              </tbody>
-                              </table>
-                         </div>
-                         <div style="margin-top: 10px; font-size: 11px; color: #666;">
-                              <em>Higher contributions indicate larger deviations from expected values.</em>
-                         </div>
-                    </div>
-               `;
-          }
-          
-          html += `</div>`; // Close yellow container
+               html += `</div>`; // Close yellow container
           }
           
           container.innerHTML = html;
+          console.log('✓ Chi-square HTML inserted successfully');
      });
+     
+     console.log('=== displayChiSquareResults COMPLETE ===\n');
 }
 
 // Function to switch between chi-square periods
