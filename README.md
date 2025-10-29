@@ -92,7 +92,7 @@ This performs a **full refresh**:
 
 **Estimated time:** 
 - Test mode: 2-5 minutes
-- Full load: 8-12 hours
+- Full load: ~3 hours
 
 ---
 
@@ -101,7 +101,7 @@ This performs a **full refresh**:
 | Command | Description | Time |
 |---------|-------------|------|
 | `python load_data.py --test` | Load first 10K rows per file | ~2-5 min |
-| `python load_data.py` | Full production load | ~8-12 hrs |
+| `python load_data.py` | Full production load | ~3 hrs |
 
 **Examples:**
 
@@ -204,24 +204,6 @@ WHERE table_schema='imdb_star_schema';"
 
 ---
 
-## 📈 Expected Statistics (Full Load)
-
-| Table | Rows | Load Time |
-|-------|------|-----------|
-| Dim_Time | 162 | <1s |
-| Dim_Genre | 28 | <1s |
-| Dim_Person | ~11M | ~45 min |
-| Dim_Title | ~10M | ~40 min |
-| Bridge_Title_Genre | ~20M | ~60 min |
-| Dim_Episode | ~7M | ~30 min |
-| Bridge_Person_KnownFor | ~40M | ~90 min |
-| Bridge_Title_Person | ~50M | ~120 min |
-| Fact_Title_Performance | ~1.3M | ~10 min |
-
-**Total:** ~8-12 hours (varies by hardware)
-
----
-
 ## 🔧 Troubleshooting
 
 ### **ETL fails with "Duplicate entry" error**
@@ -232,24 +214,6 @@ WHERE table_schema='imdb_star_schema';"
 - Use `--test` mode for development
 - Increase MySQL `innodb_buffer_pool_size`
 - Close other applications during full load
-
----
-
-## 📚 Project Structure
-
-```
-├── backend/
-│   └── db/
-│       └── schema.sql          # Star schema DDL
-├── data/
-│   └── raw/                    # Downloaded .tsv.gz files (gitignored)
-├── etl/
-│   ├── load_data.py            # Main ETL script
-│   └── config.py               # Database configuration
-├── requirements.txt            # Python dependencies
-├── .env                        # Database credentials (gitignored)
-└── README.md
-```
 
 ---
 
